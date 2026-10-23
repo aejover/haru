@@ -314,7 +314,7 @@ function seed() {
       theme: 'system', city: null, ntfyTopic: '', ntfyServer: 'https://ntfy.sh', googleClientId: '',
       nagInterval: 60, nagStart: 9, nagEnd: 22, briefHour: 8, eventLead: 30, sttAuto: true,
     },
-    pomoCfg: { focus: 25, short: 5, long: 15, every: 4, auto: true, sound: true },
+    pomoCfg: { focus: 25, short: 5, long: 30, auto: true, sound: true, mealV2: true },
     pomo: { mode: 'focus', running: false, endAt: 0, remain: 25 * 60, cycle: 0, lastTick: 0 },
     tasks: [
       { id: uid(), title: '물 2L 마시기', kind: 'daily', mode: 'normal', start: today, done: {}, example: true },
@@ -346,7 +346,11 @@ function migrate(s) {
   const d = seed();
   for (const k of Object.keys(d)) if (s[k] === undefined) s[k] = d[k];
   s.settings = { ...d.settings, ...s.settings };
+  // 긴 휴식 became 식사 시간 (30 min by default, no automatic interval) — check before defaults merge in
+  const oldPomo = !s.pomoCfg?.mealV2;
   s.pomoCfg = { ...d.pomoCfg, ...s.pomoCfg };
+  if (oldPomo) { s.pomoCfg.long = 30; delete s.pomoCfg.every; delete s.pomoCfg.mealV1; s.pomoCfg.mealV2 = true; }
+  s.alarms ||= [];
   s.yt = { ...d.yt, ...s.yt };
   s.yt.alarm = { ...d.yt.alarm, ...s.yt.alarm };
   s.profile = { ...d.profile, ...s.profile, roleModel: { ...d.profile.roleModel, ...(s.profile?.roleModel || {}) } };
@@ -584,7 +588,7 @@ export function promptDialog(title, { value = '', placeholder = '', ok = '확인
 }
 
 export function ripple(e) {
-  const btn = e.target.closest('.btn, .nav-item');
+  const btn = e.target.closest('.btn');
   if (!btn) return;
   const r = btn.getBoundingClientRect();
   const size = Math.max(r.width, r.height);
@@ -632,7 +636,7 @@ export function chime(kind = 'end') {
   try {
     ac ||= new (window.AudioContext || window.webkitAudioContext)();
     if (ac.state === 'suspended') ac.resume();
-    const seq = kind === 'end' ? [784, 988, 1175, 988, 1175] : kind === 'alarm' ? [880, 660, 880, 660, 880, 660] : [880];
+    const seq = kind === 'end' ? [784, 988, 1175, 988, 1175] : kind === 'alarm' ? [880, 660, 880, 660, 880, 660] : kind === 'count' ? [660] : kind === 'go' ? [988, 1319] : [880];
     seq.forEach((f, i) => {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = 'sine'; o.frequency.value = f;

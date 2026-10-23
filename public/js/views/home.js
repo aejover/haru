@@ -175,7 +175,30 @@ export default {
           h('button', { class: 'btn-icon sm', 'aria-label': '다음 달', onclick: () => { calYM = monthKey(new Date(y, m, 1)); paintCal(); } }, icon('right', 18))),
         miniMonth(calYM, { onPick: k => { location.hash = `calendar/${k}`; } }));
     }
-    paintTasks(); paintCal();
+    // ----- unfinished: past to-dos that were never checked off -----
+    const pendingCard = h('section', { class: 'glass card col pending-card' });
+    function paintPending() {
+      const k = dkey();
+      const late = s.tasks.filter(t => t.kind === 'once' && t.date && t.date < k && !isDone(t, t.date) && t.date >= addDays(k, -60))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      pendingCard.replaceChildren(
+        h('div', { class: 'row between' }, h('div', { class: 'row', style: { gap: '8px' } }, icon('flame', 18), h('h2', { class: 'h2' }, '아직 끝내지 못한 일')), late.length ? h('span', { class: 'chip sm ink num' }, `${late.length}개`) : null),
+        late.length ? h('div', null, late.map(t => {
+          const d = fromKey(t.date);
+          const ago = Math.round((fromKey(k) - d) / 864e5);
+          const row = h('div', { class: 'task-row' },
+            checkEl(false, () => { setDone(t, t.date, true); row.classList.add('done', 'leaving'); setTimeout(paintPending, 450); paintTasks(); }, `${t.title} 완료`),
+            h('span', { class: 't-title editable', role: 'button', tabindex: '0', title: '눌러서 수정', onclick: () => editTask(t, () => { paintPending(); paintTasks(); paintCal(); }) }, t.title),
+            h('span', { class: 'meta' },
+              h('span', { class: 'chip sm line num' }, `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]}) · ${ago === 1 ? '어제' : ago + '일 전'}`),
+              t.mode === 'nag' ? h('span', { class: 'nag-badge' }, icon('bell', 12), '독촉') : null,
+              h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { t.date = k; commit('tasks'); toast('오늘 할 일로 옮겼어요.'); paintPending(); paintTasks(); paintCal(); } }, '오늘로')));
+          return row;
+        })) : h('p', { class: 'small muted', style: { margin: 0 } }, '밀린 일이 없어요. 지난 날짜의 할 일을 끝내지 못하면 여기에 모여요.'));
+    }
+    paintTasks(); paintCal(); paintPending();
+    ctx.on('change', w => { if (w === 'tasks') paintPending(); });
+    ctx.on('newday', paintPending);
     swipe.addEventListener('scroll', () => {
       const i = Math.round(swipe.scrollLeft / Math.max(1, swipe.clientWidth));
       [...dots.children].forEach((d, j) => d.classList.toggle('on', i === j));
@@ -204,7 +227,7 @@ export default {
 
     el.append(
       h('section', { class: 'hero' }, clock, dateEl, weather),
-      mail, mottoBox, progress, swipeCard);
+      mail, mottoBox, progress, swipeCard, pendingCard);
     bus.emit('home-ready');
   },
 };

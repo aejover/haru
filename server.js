@@ -247,6 +247,19 @@ async function tick() {
     }
   }
 
+  // alarms: push to the phone at the minute (the app itself plays the sound when it's open)
+  const weekday = now.getDay();
+  for (const a of state.alarms || []) {
+    const at = toMin(a.time);
+    if (!a.on || at == null || nowMin < at || nowMin - at > 1) continue;
+    if (a.repeat === 'once' && a.date !== today) continue;
+    if (a.repeat === 'weekly' && a.days?.length && !a.days.includes(weekday)) continue;
+    const key = `alarm|${a.id}|${today}|${a.time}`;
+    if (sentLog[key]) continue;
+    sentLog[key] = Date.now(); dirty = true;
+    pushNotify({ title: a.label || '알람', message: `${a.time} 알람이에요.${a.math ? ' 하루를 열어 문제를 풀어야 꺼져요.' : ''}`, tags: ['alarm_clock'], priority: 5, kind: 'alarm', ref: a.id });
+  }
+
   const briefAt = Number(s.briefHour ?? 8) * 60;
   const briefKey = `brief|${today}`;
   if (!sentLog[briefKey] && nowMin >= briefAt && nowMin - briefAt < 90 && !briefingBusy) {

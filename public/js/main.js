@@ -3,7 +3,7 @@ import {
   $, h, icon, iconHTML, store, bus, commit, dkey, fmtDay, fmtDur, fmtClock, toast, modal, ripple, desktopNotify, chime,
   levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE,
 } from './core.js';
-import pomodoro, { tickPomo, resumePomo, remaining, durOf, MODES, focusToday, toggle as pomoToggle } from './pomodoro.js';
+import pomodoro, { tickPomo, resumePomo, remaining, durOf, MODES, focusToday, countdown, toggle as pomoToggle } from './pomodoro.js';
 import youtube, { initYouTubeHost, ytState, togglePlay } from './youtube.js';
 import { initAssistant } from './assistant.js';
 import { announcePhone } from './phone.js';
@@ -11,6 +11,8 @@ import home from './views/home.js';
 import memo from './views/memo.js';
 import calendar from './views/calendar.js';
 import timetable from './views/timetable.js';
+import alarm from './views/alarm.js';
+import { tickAlarms, nextRing } from './alarm.js';
 import checklist from './views/checklist.js';
 import diary from './views/diary.js';
 import diet from './views/diet.js';
@@ -19,9 +21,9 @@ import profile from './views/profile.js';
 import settings from './views/settings.js';
 import docs from './views/docs.js';
 
-const VIEWS = { home, memo, calendar, timetable, pomodoro, youtube, docs, checklist, diary, diet, growth, profile, settings };
+const VIEWS = { home, memo, calendar, timetable, pomodoro, alarm, youtube, docs, checklist, diary, diet, growth, profile, settings };
 const NAV = [
-  ['home', '홈'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['youtube', '유튜브 · 라디오'],
+  ['home', '홈'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['alarm', '알람'], ['youtube', '유튜브 · 라디오'],
   ['docs', '문서 작업'], ['checklist', '오늘 할 일'], ['diary', '일기'], ['diet', '식단'], ['growth', '커리큘럼'],
   '-', ['profile', '프로필'], ['settings', '설정'],
 ];
@@ -104,8 +106,9 @@ const drawer = () => $('#drawer');
 function paintDrawer() {
   const k = dkey();
   const left = tasksOn(k).filter(t => !isDone(t, k)).length;
-  const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '' };
-  const ico = { home: 'home', memo: 'memo', calendar: 'calendar', timetable: 'table', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
+  const upcoming = (store.s.alarms || []).filter(a => nextRing(a) === k).map(a => a.time).filter(t => t >= `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`).sort()[0];
+  const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '', alarm: upcoming || '' };
+  const ico = { home: 'home', memo: 'memo', calendar: 'calendar', timetable: 'table', alarm: 'bell', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
   const items = NAV.map((n, i) => n === '-' ? h('div', { class: 'nav-sep' }) :
     h('button', { class: 'nav-item' + (current?.id === n[0] ? ' on' : ''), style: { transitionDelay: `${i * 22}ms` }, onclick: () => go(n[0]) },
       icon(ico[n[0]], 20), h('span', null, n[1]), hints[n[0]] ? h('span', { class: 'hint num' }, hints[n[0]]) : null));
@@ -141,11 +144,12 @@ function paintAvatar() {
 function paintTopbar() {
   $('#focus-chip').innerHTML = `${iconHTML('flame', 16)}<span><span class="lbl">집중 </span>${fmtDur(focusToday(), true)}</span>`;
   const p = store.s.pomo, chip = $('#pomo-chip');
-  const active = p.running || remaining() < durOf(p.mode) - 1;
+  const cd = countdown();
+  const active = p.running || cd || remaining() < durOf(p.mode) - 1;
   chip.hidden = !active;
   if (active) {
-    chip.classList.toggle('running', p.running);
-    chip.innerHTML = `${iconHTML(p.running ? 'timer' : 'pause', 16)}<span>${MODES[p.mode]} ${fmtClock(remaining())}</span>`;
+    chip.classList.toggle('running', p.running || !!cd);
+    chip.innerHTML = cd ? `${iconHTML('timer', 16)}<span>집중 시작 ${cd}</span>` : `${iconHTML(p.running ? 'timer' : 'pause', 16)}<span>${MODES[p.mode]} ${fmtClock(remaining())}</span>`;
   }
   const y = ytState(), pill = $('#radio-pill');
   const show = y.loaded && (y.radio || current?.id !== 'youtube') && (y.playing || y.radio);
@@ -220,6 +224,7 @@ function connectEvents() {
   es.addEventListener('notify', e => {
     const d = JSON.parse(e.data);
     if (d.kind === 'test') return toast(d.message, { title: d.title, icon: 'bell' });
+    if (d.kind === 'alarm') return; // an open window rings the alarm itself
     if (d.kind === 'nag') chime('alarm');
     toast(d.message, { title: d.title, icon: 'bell', duration: 9000, action: d.kind === 'nag' ? { label: '열기', onClick: () => go('checklist') } : null });
     desktopNotify(d.title, d.message);
@@ -327,7 +332,12 @@ async function boot() {
   paintAvatar(); paintTopbar();
   route();
 
-  setInterval(() => { tickPomo(); paintTopbar(); }, 1000);
+  let lastPaint = '';
+  setInterval(() => {
+    tickPomo(); tickAlarms();
+    const sig = `${Math.floor(Date.now() / 1000)}|${countdown()}`; // repaint once per second
+    if (sig !== lastPaint) { lastPaint = sig; paintTopbar(); }
+  }, 250);
   bus.on('yt', paintTopbar);
   bus.on('change', paintTopbar);
 
