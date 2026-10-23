@@ -7,6 +7,18 @@ import { memoBlocks } from './memo-blocks.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const plain = html => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
+// Browser-made webm recordings carry no length, so the player shows no duration and can't seek.
+// Jumping to the far end once makes the browser read the real length.
+function audioEl(src) {
+  const el = h('audio', { src, controls: true, preload: 'metadata' });
+  el.addEventListener('loadedmetadata', () => {
+    if (el.duration !== Infinity) return;
+    const back = () => { el.removeEventListener('timeupdate', back); el.currentTime = 0; };
+    el.addEventListener('timeupdate', back);
+    el.currentTime = 1e101;
+  });
+  return el;
+}
 const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
 export default {
@@ -116,7 +128,7 @@ export default {
           return h('div', { class: 'att', style: { flexDirection: 'column', alignItems: 'stretch' } },
             h('div', { class: 'row' }, icon('mic', 18), h('b', { class: 'grow' }, a.name || '녹음'), h('span', { class: 'tiny muted num' }, fmtTime(a.duration || 0)),
               h('button', { class: 'btn-icon sm', 'aria-label': '녹음 삭제', onclick: () => removeAtt(a) }, icon('x', 14))),
-            h('audio', { src: a.url, controls: true, preload: 'metadata' }),
+            audioEl(a.url),
             a.transcript ? h('div', { class: 'transcript' }, a.transcript) : h('div', { class: 'tiny muted' }, SR ? '받아쓴 내용이 없어요.' : '이 브라우저는 받아쓰기를 지원하지 않아요. Chrome이나 Edge에서 녹음하면 자동으로 텍스트가 돼요.'),
             h('div', { class: 'row wrap' },
               a.transcript ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { body.focus(); document.execCommand('insertText', false, '\n' + a.transcript); m.html = body.innerHTML; touch(); } }, icon('text', 14), '본문에 넣기') : null,
@@ -150,36 +162,57 @@ export default {
 
       // ----- recording -----
       let rec = null;
+      const memoId = m.id;
       async function toggleRecording() { if (rec) return stopRecording(); startRecording(); }
-      async function startRecording() {
+      async function startRecording(withSpeech = !!(SR && s.settings.sttAuto)) {
+        if (!window.MediaRecorder) { toast('이 브라우저는 녹음을 지원하지 않아요.'); return; }
         let stream;
         try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-        catch { toast('마이크를 쓸 수 없어요. 브라우저 주소창의 마이크 권한을 확인하세요.'); return; }
-        const chunks = []; const mr = new MediaRecorder(stream);
-        mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        catch { toast(location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname) ? '마이크를 쓸 수 없어요. 주소창의 마이크 권한을 허용하세요.' : '휴대폰에서 녹음하려면 https 주소(Tailscale)로 열어야 해요.'); return; }
+        const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported?.(t));
+        const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+        const chunks = [];
+        mr.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
         let finalText = '', interim = '';
-        const live = h('div', { class: 'live-tx' }, SR && s.settings.sttAuto ? '말하면 여기에 받아써져요…' : '녹음 중…');
+        const live = h('div', { class: 'live-tx' }, withSpeech ? '말하면 여기에 받아써져요…' : '녹음 중…');
         const clock = h('span', { class: 'num' }, '0:00');
         const started = Date.now();
-        rec = { mr, stream, recog: null, live, timer: setInterval(() => { clock.textContent = fmtTime((Date.now() - started) / 1000); }, 500) };
-        if (SR && s.settings.sttAuto) {
+        const me = { mr, stream, recog: null, byUser: false, release: store.hold(), timer: setInterval(() => { clock.textContent = fmtTime((Date.now() - started) / 1000); }, 500) };
+        rec = me;
+        // Some phones hand the microphone to speech recognition and end the recording; keep recording without it.
+        stream.getAudioTracks()[0]?.addEventListener('ended', () => {
+          if (rec !== me || me.byUser) return;
+          if (me.recog && Date.now() - started < 4000) { me.fallback = true; toast('이 기기에서는 녹음과 받아쓰기를 함께 할 수 없어서 녹음만 할게요.'); }
+          stopRecording(true);
+        });
+        if (withSpeech) {
           const r = new SR(); r.lang = 'ko-KR'; r.continuous = true; r.interimResults = true;
           r.onresult = e => {
             interim = '';
             for (let i = e.resultIndex; i < e.results.length; i++) { const res = e.results[i]; if (res.isFinal) finalText += res[0].transcript.trim() + ' '; else interim += res[0].transcript; }
             live.textContent = (finalText + interim).trim() || '…';
           };
-          r.onend = () => { if (rec?.recog === r) { try { r.start(); } catch { /* already running */ } } };
-          r.onerror = ev => { if (ev.error === 'not-allowed') toast('받아쓰기 권한이 없어요.'); };
-          try { r.start(); rec.recog = r; } catch { /* unsupported */ }
+          r.onend = () => { if (rec === me && me.recog === r) { try { r.start(); } catch { /* already running */ } } };
+          r.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { me.recog = null; live.textContent = '받아쓰기를 쓸 수 없어서 녹음만 하고 있어요.'; } };
+          try { r.start(); me.recog = r; } catch { /* unsupported */ }
         }
         mr.onstop = async () => {
-          const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+          me.stream.getTracks().forEach(t => t.stop());
+          me.release();
+          if (me.fallback) { startRecording(false); return; }
+          const blob = new Blob(chunks, { type: mr.mimeType || mime || 'audio/webm' });
+          if (!blob.size) { toast('녹음된 소리가 없어요. 마이크가 다른 앱에서 쓰이고 있지 않은지 확인하세요.'); return; }
+          const type = blob.type || '';
+          const ext = type.includes('mp4') ? '.m4a' : type.includes('ogg') ? '.ogg' : '.webm';
           const duration = (Date.now() - started) / 1000;
           try {
-            const up = await upload(blob, `녹음-${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }).replace(/\s/g, '')}.webm`);
-            m.atts.push({ id: uid(), type: 'audio', url: up.url, name: `녹음 ${new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, duration, transcript: (finalText + interim).trim() });
-            m.updatedAt = Date.now(); commit('memos'); gainXP('record'); paintAtts(); paintList();
+            const up = await upload(blob, `recording${ext}`);
+            // the memo object on screen may have been replaced meanwhile; attach to the stored one
+            const target = store.s.memos.find(x => x.id === memoId) || m;
+            target.atts.push({ id: uid(), type: 'audio', url: up.url, name: `녹음 ${new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, duration, transcript: (finalText + interim).trim() });
+            target.updatedAt = Date.now(); commit('memos'); gainXP('record');
+            if (cur?.id === memoId) { if (cur !== target) { cur = target; paintEditor(); } else paintAtts(); }
+            paintList();
             toast('녹음을 저장했어요.', { icon: 'mic' });
           } catch (e) { toast(e.message); }
         };
@@ -188,13 +221,16 @@ export default {
           h('div', { class: 'row' }, h('span', { class: 'rec-dot' }), h('b', { class: 'grow' }, '녹음 중'), clock, h('button', { class: 'btn btn-ink btn-sm', onclick: () => stopRecording() }, icon('stop', 14), '정지')),
           live));
       }
-      stopRecording = () => {
+      stopRecording = (auto = false) => {
         if (!rec) return;
         const r = rec; rec = null;
+        r.byUser = !auto;
         clearInterval(r.timer);
-        try { r.recog?.stop(); } catch { /* ignore */ }
-        if (r.mr.state !== 'inactive') r.mr.stop();
-        r.stream.getTracks().forEach(t => t.stop());
+        const sp = r.recog; r.recog = null;
+        try { sp?.stop(); } catch { /* ignore */ }
+        // let the recorder hand over its last chunk; tracks stop in onstop
+        if (r.mr.state !== 'inactive') { try { r.mr.requestData?.(); } catch { /* ignore */ } r.mr.stop(); }
+        else { r.stream.getTracks().forEach(t => t.stop()); r.release(); }
         recBox.replaceChildren();
       };
 

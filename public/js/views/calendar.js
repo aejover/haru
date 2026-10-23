@@ -4,6 +4,7 @@ import {
   h, icon, store, commit, uid, dkey, addDays, fromKey, fmtDay, monthKey, WEEK, seg, checkEl, toast, modal, upload, pickFiles,
   tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj,
 } from '../core.js';
+import { editEvent, editTask } from './edit-item.js';
 
 function bigMonth(ym, sel, onPick) {
   const [y, m] = ym.split('-').map(Number);
@@ -18,9 +19,11 @@ function bigMonth(ym, sel, onPick) {
     const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
     const todos = s.tasks.filter(t => t.kind === 'once' && t.date === k);
     const routines = tasksOn(k).filter(t => t.kind === 'daily');
+    // tapping an item in the month grid opens its editor (tapping the empty part of the day selects it)
+    const open = fn => ev => { ev.stopPropagation(); onPick(k); fn(); };
     const items = [
-      ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : '') }, (e.time ? e.time + ' ' : '') + e.title)),
-      ...todos.map(t => h('div', { class: 'cal-ev todo' }, (isDone(t, k) ? '✓ ' : '') + t.title)),
+      ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : ''), title: '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))) }, (e.time ? e.time + ' ' : '') + e.title)),
+      ...todos.map(t => h('div', { class: 'cal-ev todo', title: '눌러서 수정', onclick: open(() => editTask(t, () => onPick(k))) }, (isDone(t, k) ? '✓ ' : '') + t.title)),
     ];
     const max = 3;
     grid.append(h('button', {
@@ -177,13 +180,15 @@ export default {
           h('div', { class: 'row between' }, h('h2', { class: 'h2' }, fmtDay(k)), k === dkey() ? h('span', { class: 'chip sm ink' }, '오늘') : null),
           evs.length || list.length ? h('div', null,
             evs.map(e => h('div', { class: 'item-row' }, h('span', { class: 'type-dot' }), h('span', { class: 'chip sm line num' }, e.time || '종일'),
-              h('span', { class: 'grow' }, e.title, e.note ? h('div', { class: 'small muted' }, e.note) : null, e.source === 'image' ? h('div', { class: 'tiny muted' }, '이미지에서 읽은 일정') : null),
+              h('button', { class: 'grow item-edit', title: '눌러서 수정', onclick: () => editEvent(e, paintAll) }, e.title, e.note ? h('div', { class: 'small muted' }, e.note) : null, e.source === 'image' ? h('div', { class: 'tiny muted' }, '이미지에서 읽은 일정') : null),
+              h('button', { class: 'btn-icon sm', 'aria-label': '일정 수정', title: '수정', onclick: () => editEvent(e, paintAll) }, icon('pen', 15)),
               h('button', { class: 'btn-icon sm', 'aria-label': '일정 삭제', onclick: () => { s.events = s.events.filter(x => x !== e); commit('events'); paintAll(); } }, icon('trash', 15)))),
             list.map(t => h('div', { class: 'item-row' },
               checkEl(isDone(t, k), v => { setDone(t, k, v); paintGrid(); }, t.title),
-              h('span', { class: 'grow' }, t.title, h('span', { class: 'small muted' }, t.kind === 'daily' ? ' · 루틴' : ' · 할 일')),
+              h('button', { class: 'grow item-edit', title: '눌러서 수정', onclick: () => editTask(t, paintAll) }, t.title, h('span', { class: 'small muted' }, t.kind === 'daily' ? ' · 루틴' : ' · 할 일')),
               t.mode === 'nag' ? h('span', { class: 'nag-badge' }, icon('bell', 11), '독촉') : null,
               t.time ? h('span', { class: 'chip sm line num' }, t.time) : null,
+              h('button', { class: 'btn-icon sm', 'aria-label': '수정', title: '수정', onclick: () => editTask(t, paintAll) }, icon('pen', 15)),
               h('button', { class: 'btn-icon sm', 'aria-label': '삭제', onclick: () => { removeTask(t); paintAll(); } }, icon('trash', 15)))))
             : h('div', { class: 'empty' }, icon('calendar', 28), '이 날은 비어 있어요.')),
         h('section', { class: 'glass card col' },

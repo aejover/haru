@@ -193,10 +193,15 @@ export function icon(name, size = 20, sw = 1.7) {
 }
 export const iconHTML = (name, size = 20, sw = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
-// Claude's little companion: a soft eight-petal spark with eyes.
+// Claude's little companion: a square, blocky creature with side arms, four short legs and blinking eyes.
 export function clawdSVG(size = 44) {
-  const petals = Array.from({ length: 8 }, (_, i) => `<ellipse cx="32" cy="15" rx="6.2" ry="13" transform="rotate(${i * 45} 32 32)"/>`).join('');
-  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${petals}<circle cx="32" cy="32" r="15"/></g><ellipse class="eye" cx="26.5" cy="31" rx="2.4" ry="3.4"/><ellipse class="eye" cx="37.5" cy="31" rx="2.4" ry="3.4"/><ellipse class="cheek" cx="22.5" cy="37" rx="2.6" ry="1.5"/><ellipse class="cheek" cx="41.5" cy="37" rx="2.6" ry="1.5"/></svg>`;
+  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">`
+    + `<g class="body">`
+    + `<rect x="12" y="12" width="40" height="30" rx="6"/>`
+    + `<rect class="arm l" x="5" y="23" width="8" height="8" rx="2.5"/><rect class="arm r" x="51" y="23" width="8" height="8" rx="2.5"/>`
+    + `<rect x="17" y="45" width="5" height="7" rx="2"/><rect x="26" y="45" width="5" height="7" rx="2"/><rect x="33" y="45" width="5" height="7" rx="2"/><rect x="42" y="45" width="5" height="7" rx="2"/>`
+    + `<rect class="eye" x="21" y="21" width="5" height="8" rx="2"/><rect class="eye" x="38" y="21" width="5" height="8" rx="2"/>`
+    + `</g></svg>`;
 }
 
 // ---------- event bus ----------
@@ -231,14 +236,25 @@ export const store = {
     if (!data) this.flush();
   },
   // Another device saved: take its copy, unless something is being typed here right now.
+  // Something long-running (a recording) can hold off other devices' updates until it finishes.
+  holds: 0,
+  hold() {
+    this.holds++;
+    let done = false;
+    return () => {
+      if (done) return; done = true;
+      this.holds = Math.max(0, this.holds - 1);
+      if (!this.holds && this.pendingRemote) setTimeout(() => this.pullRemote(), 300);
+    };
+  },
   async pullRemote() {
     if (!this.fromServer) return;
-    if (this._dirty || editingNow()) { this.pendingRemote = true; return; }
+    if (this._dirty || editingNow() || this.holds) { this.pendingRemote = true; return; }
     try {
       const r = await fetch('/api/state', { cache: 'no-store' });
       const data = r.ok ? await r.json() : null;
       if (!data) return;
-      if (this._dirty || editingNow()) { this.pendingRemote = true; return; }
+      if (this._dirty || editingNow() || this.holds) { this.pendingRemote = true; return; }
       this.rev = Number(r.headers.get('X-Haru-Rev')) || this.rev;
       // a running timer saves every few seconds; that alone shouldn't redraw the whole screen
       const core = s => JSON.stringify({ ...s, pomo: 0, focus: 0 });
