@@ -249,6 +249,15 @@ function offlineScreen() {
     h('button', { class: 'btn btn-ink btn-lg', onclick: () => location.reload() }, icon('refresh', 18), '다시 연결'),
     REMOTE ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { try { localStorage.removeItem('haru.server'); } catch { /* ignore */ } location.replace(location.pathname); } }, '컴퓨터 주소 바꾸기') : null);
   document.body.append(h('div', { class: 'offline-wrap' }, box));
+  // Chrome asks before a public site (github.io) may reach a device on the private network (Tailscale)
+  if (REMOTE && navigator.permissions) {
+    navigator.permissions.query({ name: 'local-network-access' }).then(p => {
+      if (p.state !== 'denied') return;
+      box.querySelector('ol').before(h('div', { class: 'guide', style: { textAlign: 'left' } },
+        h('b', null, '브라우저가 내 컴퓨터 연결을 막고 있어요'), h('br'),
+        '주소창 왼쪽 아이콘(사이트 정보) → 사이트 설정 → "로컬 네트워크 액세스"를 허용으로 바꾼 뒤 다시 연결을 누르세요.'));
+    }).catch(() => { /* browser without this permission: nothing to explain */ });
+  }
 }
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; bus.emit('installable'); });
