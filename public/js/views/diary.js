@@ -4,9 +4,10 @@ import {
 } from '../core.js';
 
 export const RATINGS = [
-  [5, '최고의 날', 'face5'], [4, '좋은 날', 'face4'], [3, '보통 날', 'face3'], [2, '안 좋은 날', 'face2'], [1, '최악의 날', 'face1'],
+  [5, '최고의 날', 'face5', '#22A06B'], [4, '좋은 날', 'face4', '#3B82F6'], [3, '보통 날', 'face3', '#E0A82E'], [2, '안 좋은 날', 'face2', '#F07B32'], [1, '최악의 날', 'face1', '#E5484D'],
 ];
 const rateOf = n => RATINGS.find(r => r[0] === n);
+const rateColor = n => rateOf(n)?.[3] || 'var(--fg)';
 
 function yearAgo(k) {
   const d = fromKey(k);
@@ -39,7 +40,7 @@ export default {
       const chips = h('div', { class: 'emo-chips' });
       const suggestBtn = h('button', { class: 'btn btn-ghost btn-sm', onclick: suggest }, icon('sparkle', 14), 'Claude 추천');
       const rateRow = h('div', { class: 'rate-row', role: 'radiogroup', 'aria-label': '오늘은 어떤 날이었나요' });
-      const paintRate = () => rateRow.replaceChildren(RATINGS.map(([n, label, ic]) => h('button', { class: 'rate' + (draft.rating === n ? ' on' : ''), role: 'radio', 'aria-checked': String(draft.rating === n), onclick: () => { draft.rating = n; paintRate(); touch(); } }, icon(ic, 28, 1.6), label)));
+      const paintRate = () => rateRow.replaceChildren(RATINGS.map(([n, label, ic, color]) => h('button', { class: 'rate' + (draft.rating === n ? ' on' : ''), style: { '--rc': color }, role: 'radio', 'aria-checked': String(draft.rating === n), onclick: () => { draft.rating = n; paintRate(); touch(); } }, icon(ic, 28, 1.6), label)));
       paintRate();
       const body = h('textarea', { class: 'textarea diary-body', placeholder: '오늘 있었던 일을 적어 보세요.', 'aria-label': '오늘 있었던 일' });
       body.value = draft.body || '';
@@ -107,7 +108,7 @@ export default {
         h('section', { class: 'year-ago glass' },
           h('div', { class: 'row' }, icon('reset', 18), h('h2', { class: 'h2' }, '1년 전 오늘의 나'), h('span', { class: 'small muted' }, fmtDay(yearAgo(date), true))),
           ago ? [
-            h('div', { class: 'row' }, ago.rating ? h('span', { class: 'chip sm' }, icon(rateOf(ago.rating)[2], 14), rateOf(ago.rating)[1]) : null, ago.emotion ? h('span', { class: 'chip sm line' }, ago.emotion) : null),
+            h('div', { class: 'row' }, ago.rating ? h('span', { class: 'chip sm', style: { background: rateColor(ago.rating), color: '#fff' } }, icon(rateOf(ago.rating)[2], 14), rateOf(ago.rating)[1]) : null, ago.emotion ? h('span', { class: 'chip sm line' }, ago.emotion) : null),
             h('b', null, ago.title || '제목 없음'),
             h('div', { class: 'quote' }, ago.body),
             ago.media?.length ? h('div', { class: 'img-grid' }, ago.media.filter(m => m.type === 'image').slice(0, 4).map(m => h('figure', null, h('img', { src: m.url, alt: '' })))) : null,
@@ -125,7 +126,7 @@ export default {
         const e = entryFor(k);
         grid.append(h('button', { class: 'cal-cell' + (d.getMonth() !== m - 1 ? ' other' : '') + (k === dkey() ? ' today' : '') + (k === date ? ' sel' : ''), onclick: () => { date = k; paintAll(); }, 'aria-label': `${d.getDate()}일${e ? ' 일기 있음' : ''}` },
           h('span', { class: 'd' }, d.getDate()),
-          e ? (e.rating ? h('span', { class: 'mood-face' }, icon(rateOf(e.rating)[2], 20, 1.6)) : h('span', { class: 'dots-row' }, h('i'))) : null));
+          e ? (e.rating ? h('span', { class: 'mood-face', style: { color: rateColor(e.rating) } }, icon(rateOf(e.rating)[2], 20, 1.8)) : h('span', { class: 'dots-row' }, h('i'))) : null));
       }
       // monthly stats
       const month = s.diary.filter(e => e.date.startsWith(ym));
@@ -148,8 +149,8 @@ export default {
         h('section', { class: 'glass card col' },
           h('div', { class: 'row between' }, h('h2', { class: 'h2' }, `${m}월 통계`), h('span', { class: 'small muted num' }, `일기 ${month.length}편`)),
           rated.length ? [
-            h('div', { class: 'row' }, h('div', { class: 'kpi' }, h('b', null, avg.toFixed(1)), h('span', null, '평균 (5점 만점)')), h('span', { class: 'spacer' }), icon(rateOf(Math.round(avg))[2], 40, 1.4)),
-            ...RATINGS.map(([n, label]) => h('div', { class: 'dist-row' }, h('span', null, label), h('div', { class: 'bar' }, h('i', { style: { width: (counts[n] / maxC) * 100 + '%' } })), h('span', { class: 'num muted', style: { textAlign: 'right' } }, `${counts[n]}일`))),
+            h('div', { class: 'row' }, h('div', { class: 'kpi' }, h('b', null, avg.toFixed(1)), h('span', null, '평균 (5점 만점)')), h('span', { class: 'spacer' }), h('span', { style: { color: rateColor(Math.round(avg)), display: 'inline-flex' } }, icon(rateOf(Math.round(avg))[2], 40, 1.6))),
+            ...RATINGS.map(([n, label, , color]) => h('div', { class: 'dist-row' }, h('span', null, label), h('div', { class: 'bar' }, h('i', { style: { width: (counts[n] / maxC) * 100 + '%', background: color } })), h('span', { class: 'num muted', style: { textAlign: 'right' } }, `${counts[n]}일`))),
             top.length ? h('div', { class: 'col', style: { gap: '6px' } }, h('span', { class: 'section-label' }, '자주 느낀 감정'), h('div', { class: 'emo-chips' }, top.map(([w, c]) => h('span', { class: 'chip sm' }, `${w} ${c}`)))) : null,
             best ? h('button', { class: 'small', style: { textAlign: 'left' }, onclick: () => { date = best.date; paintAll(); } }, '이번 달 최고의 날: ', h('b', null, `${fromKey(best.date).getDate()}일 · ${best.title || '제목 없음'}`)) : null,
           ] : h('p', { class: 'small muted', style: { margin: 0 } }, '일기에 "오늘은 어떤 날"을 고르면 한 달 동안의 기분 통계가 여기에 쌓여요.')));

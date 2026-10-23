@@ -93,11 +93,11 @@ export default {
   id: 'pomodoro', title: '뽀모도로', icon: 'timer',
   render(el, ctx) {
     el.classList.add('stagger');
-    const R = 150, C = 2 * Math.PI * R;
+    const R = 146, C = 2 * Math.PI * R, W = 24;
     const fill = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     const ring = h('div', { class: 'ring' });
-    ring.innerHTML = `<svg viewBox="0 0 340 340"><circle class="track" cx="170" cy="170" r="${R}" fill="none" stroke-width="10"/></svg>`;
-    Object.entries({ class: 'fill', cx: 170, cy: 170, r: R, fill: 'none', 'stroke-width': 10, 'stroke-dasharray': C }).forEach(([k, v]) => fill.setAttribute(k, v));
+    ring.innerHTML = `<svg viewBox="0 0 340 340"><circle class="track" cx="170" cy="170" r="${R}" fill="none" stroke-width="${W}"/></svg>`;
+    Object.entries({ class: 'fill', cx: 170, cy: 170, r: R, fill: 'none', 'stroke-width': W, 'stroke-dasharray': C }).forEach(([k, v]) => fill.setAttribute(k, v));
     ring.firstChild.append(fill);
     const timeEl = h('div', { class: 'ring-time' });
     const modeEl = h('div', { class: 'ring-mode' });

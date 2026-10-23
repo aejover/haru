@@ -111,11 +111,12 @@ export default {
     function paintProgress() {
       const n = new Date();
       const dayStart = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-      const mStart = new Date(n.getFullYear(), n.getMonth(), 1), mEnd = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+      const wStart = new Date(dayStart); wStart.setDate(wStart.getDate() - ((wStart.getDay() + 6) % 7)); // Monday
+      const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate() + 7);
       const yStart = new Date(n.getFullYear(), 0, 1), yEnd = new Date(n.getFullYear() + 1, 0, 1);
       const parts = [
         ['오늘', (n - dayStart) / 864e5],
-        ['이번 달', (n - mStart) / (mEnd - mStart)],
+        ['이번 주', (n - wStart) / (wEnd - wStart)],
         ['올해', (n - yStart) / (yEnd - yStart)],
       ];
       progress.replaceChildren(...parts.map(([lbl, f]) => {

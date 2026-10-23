@@ -10,6 +10,7 @@ import { announcePhone } from './phone.js';
 import home from './views/home.js';
 import memo from './views/memo.js';
 import calendar from './views/calendar.js';
+import timetable from './views/timetable.js';
 import checklist from './views/checklist.js';
 import diary from './views/diary.js';
 import diet from './views/diet.js';
@@ -18,9 +19,9 @@ import profile from './views/profile.js';
 import settings from './views/settings.js';
 import docs from './views/docs.js';
 
-const VIEWS = { home, memo, calendar, pomodoro, youtube, docs, checklist, diary, diet, growth, profile, settings };
+const VIEWS = { home, memo, calendar, timetable, pomodoro, youtube, docs, checklist, diary, diet, growth, profile, settings };
 const NAV = [
-  ['home', '홈'], ['memo', '메모장'], ['calendar', '캘린더'], ['pomodoro', '뽀모도로'], ['youtube', '유튜브 · 라디오'],
+  ['home', '홈'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['youtube', '유튜브 · 라디오'],
   ['docs', '문서 작업'], ['checklist', '오늘 할 일'], ['diary', '일기'], ['diet', '식단'], ['growth', '커리큘럼'],
   '-', ['profile', '프로필'], ['settings', '설정'],
 ];
@@ -63,12 +64,20 @@ function makeCtx() {
 }
 export const go = (id, arg) => { location.hash = arg ? `${id}/${encodeURIComponent(arg)}` : id; };
 // Tab changes cross-fade through the View Transitions API where the browser has it.
+let routeSeq = 0;
 function route(animate = true) {
   const html = document.documentElement;
-  if (!animate || !current || !document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) return renderRoute();
+  const seq = ++routeSeq;
+  let done = false;
+  const run = () => { if (done || seq !== routeSeq) return; done = true; renderRoute(); };
+  if (!animate || !current || !document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) return run();
   html.classList.add('vt-running');
-  const t = document.startViewTransition(renderRoute);
-  t.finished.finally(() => html.classList.remove('vt-running'));
+  try {
+    const t = document.startViewTransition(run);
+    t.finished.finally(() => html.classList.remove('vt-running'));
+  } catch { run(); }
+  // a window that isn't drawing frames never starts the animation; switch anyway
+  setTimeout(() => { if (!done) { run(); html.classList.remove('vt-running'); } }, 450);
 }
 function renderRoute() {
   const [id, ...rest] = location.hash.slice(1).split('/');
@@ -96,7 +105,7 @@ function paintDrawer() {
   const k = dkey();
   const left = tasksOn(k).filter(t => !isDone(t, k)).length;
   const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '' };
-  const ico = { home: 'home', memo: 'memo', calendar: 'calendar', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
+  const ico = { home: 'home', memo: 'memo', calendar: 'calendar', timetable: 'table', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
   const items = NAV.map((n, i) => n === '-' ? h('div', { class: 'nav-sep' }) :
     h('button', { class: 'nav-item' + (current?.id === n[0] ? ' on' : ''), style: { transitionDelay: `${i * 22}ms` }, onclick: () => go(n[0]) },
       icon(ico[n[0]], 20), h('span', null, n[1]), hints[n[0]] ? h('span', { class: 'hint num' }, hints[n[0]]) : null));
