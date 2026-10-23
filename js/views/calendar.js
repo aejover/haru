@@ -5,6 +5,7 @@ import {
   tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj,
 } from '../core.js';
 import { editEvent, editTask } from './edit-item.js';
+import { openViewer } from '../viewer.js';
 
 function bigMonth(ym, sel, onPick) {
   const [y, m] = ym.split('-').map(Number);
@@ -88,7 +89,8 @@ export default {
         return;
       }
       imgBox.replaceChildren(h('div', { class: 'img-cal glass' },
-        h('img', { src: img.url, alt: '이 달의 캘린더 이미지' }),
+        h('img', { src: img.url, alt: '이 달의 캘린더 이미지', title: '눌러서 크게 보기', onclick: () => openViewer(img.url, { alt: '이 달의 캘린더 이미지' }) }),
+        h('button', { class: 'btn btn-glass btn-sm img-zoom', onclick: () => openViewer(img.url, { alt: '이 달의 캘린더 이미지' }) }, icon('search', 15), '크게 보기'),
         h('div', { class: 'img-actions' },
           h('button', { class: 'btn btn-ink btn-sm', onclick: e => analyze(e.currentTarget) }, icon('sparkle', 15), img.analyzed ? 'Claude로 다시 읽기' : 'Claude로 일정 읽기'),
           h('button', { class: 'btn btn-glass btn-sm', onclick: () => pick() }, '바꾸기'),

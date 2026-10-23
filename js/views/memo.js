@@ -1,9 +1,10 @@
 ﻿// memo.js — 메모장: text, voice recording (live transcription + Claude summary), links, images, files,
 // and a pen layer for doodling over a saved memo.
 import {
-  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl,
+  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl, download,
 } from '../core.js';
 import { memoBlocks } from './memo-blocks.js';
+import { openViewer } from '../viewer.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const plain = html => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
@@ -21,11 +22,31 @@ function audioEl(src) {
 }
 const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
+// Pasted text keeps its structure (bold, lists, links, tables) but none of the source page's colors,
+// backgrounds or fonts — those made pasted text show up as white-on-black blocks.
+const KEEP_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'A', 'UL', 'OL', 'LI', 'P', 'DIV', 'BR', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'TABLE', 'TBODY', 'THEAD', 'TR', 'TD', 'TH', 'HR', 'IMG']);
+function cleanPaste(html) {
+  const doc = new DOMParser().parseFromString(html.replace(/<!--[\s\S]*?-->/g, ''), 'text/html');
+  const walk = node => [...node.children].forEach(el => {
+    if (['SCRIPT', 'STYLE', 'META', 'LINK', 'TITLE', 'IFRAME', 'OBJECT'].includes(el.tagName)) { el.remove(); return; }
+    walk(el);
+    if (!KEEP_TAGS.has(el.tagName)) { el.replaceWith(...el.childNodes); return; }
+    [...el.attributes].forEach(a => { if (!((a.name === 'href' && el.tagName === 'A' && !/^\s*javascript:/i.test(a.value)) || (a.name === 'src' && el.tagName === 'IMG') || a.name === 'colspan' || a.name === 'rowspan')) el.removeAttribute(a.name); });
+    if (el.tagName === 'A') el.setAttribute('target', '_blank');
+  });
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+const SIZES = [['', '크기'], ['14px', '작게'], ['16px', '보통'], ['19px', '크게'], ['24px', '아주 크게'], ['30px', '제목']];
+const WEIGHTS = [['', '두께'], ['300', '얇게'], ['400', '보통'], ['500', '중간'], ['700', '굵게'], ['800', '아주 굵게']];
+const lastMemo = { get: () => { try { return localStorage.getItem('haru.lastMemo'); } catch { return null; } }, set: id => { try { id ? localStorage.setItem('haru.lastMemo', id) : localStorage.removeItem('haru.lastMemo'); } catch { /* ignore */ } } };
+
 export default {
   id: 'memo', title: '메모장', icon: 'memo',
   render(el, ctx, arg) {
     const s = store.s;
-    let cur = s.memos.find(m => m.id === arg) || null;
+    // reopen the memo you were last working on
+    let cur = s.memos.find(m => m.id === (arg || lastMemo.get())) || null;
     let query = '';
     const layout = h('div', { class: 'memo-layout' + (cur ? ' editing' : '') });
     const listBox = h('aside', { class: 'memo-list glass' });
@@ -59,22 +80,65 @@ export default {
     function paintEditor() {
       stopRecording?.();
       if (!cur) {
+        lastMemo.set(null);
         editor.replaceChildren(h('div', { class: 'empty', style: { padding: '60px 20px' } }, icon('memo', 40), '왼쪽에서 메모를 고르거나 새 메모를 만드세요.', h('button', { class: 'btn btn-ink', onclick: newMemo }, icon('plus', 16), '새 메모')));
         return;
       }
       const m = cur;
+      lastMemo.set(m.id);
       const touch = debounce(() => { m.updatedAt = Date.now(); commit('memos'); paintList(); }, 600);
       const title = h('input', { class: 'input bare memo-title', placeholder: '제목', value: m.title, 'aria-label': '메모 제목', oninput: () => { m.title = title.value; touch(); } });
       const body = h('div', { class: 'memo-body', contenteditable: 'true', 'data-placeholder': '여기에 메모를 적으세요…', role: 'textbox', 'aria-multiline': 'true', 'aria-label': '메모 내용', html: m.html });
       body.addEventListener('input', () => { m.html = body.innerHTML; touch(); });
+      // clean memos pasted before the fix: drop leftover colors/backgrounds/fonts, keep size & weight
+      let tidied = false;
+      body.querySelectorAll('[style],[color],[bgcolor],[face]').forEach(x => {
+        ['color', 'bgcolor', 'face'].forEach(a => { if (x.hasAttribute(a)) { x.removeAttribute(a); tidied = true; } });
+        if (!x.hasAttribute('style')) return;
+        const before = x.getAttribute('style'), fs = x.style.fontSize, fw = x.style.fontWeight;
+        x.removeAttribute('style');
+        if (fs) x.style.fontSize = fs;
+        if (fw) x.style.fontWeight = fw;
+        if ((x.getAttribute('style') || '') !== before) tidied = true;
+      });
+      if (tidied) { m.html = body.innerHTML; commit('memos'); }
+      if (m.fs) body.style.fontSize = m.fs;
+      if (m.fw) body.style.fontWeight = m.fw;
       body.addEventListener('paste', e => {
         const img = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
-        if (img) { e.preventDefault(); addFiles([img], 'image'); }
+        if (img) { e.preventDefault(); addFiles([img], 'image'); return; }
+        const html = e.clipboardData?.getData('text/html');
+        if (html) { e.preventDefault(); document.execCommand('insertHTML', false, cleanPaste(html)); m.html = body.innerHTML; touch(); }
       });
       const fmt = (cmd, val) => { body.focus(); document.execCommand(cmd, false, val); m.html = body.innerHTML; touch(); };
-      destroyBlocks?.();
+      // text size / weight: selected text only, or the whole memo when nothing is selected
+      let range = null;
+      const keepRange = () => { const sel = getSelection(); if (sel.rangeCount && body.contains(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange(); };
+      document.addEventListener('selectionchange', keepRange);
+      const prevCleanup = destroyBlocks;
+      function styleText(prop, value, label) {
+        if (!value) return;
+        if (!range || range.collapsed || !body.contains(range.startContainer)) {
+          m[prop === 'fontSize' ? 'fs' : 'fw'] = value; body.style[prop] = value;
+          commit('memos'); toast(`메모 전체를 ${label}(으)로 바꿨어요. 일부만 바꾸려면 글자를 먼저 고르세요.`);
+          return;
+        }
+        // wrap the selection ourselves: the browser's fontSize command would wipe earlier size/weight choices
+        body.focus({ preventScroll: true });
+        const r = range.cloneRange();
+        const sp = document.createElement('span'); sp.style[prop] = value;
+        sp.append(r.extractContents());
+        sp.querySelectorAll('span').forEach(inner => { inner.style[prop] = ''; if (!inner.getAttribute('style')) inner.replaceWith(...inner.childNodes); });
+        r.insertNode(sp);
+        const sel = getSelection(); const again = document.createRange(); again.selectNodeContents(sp); sel.removeAllRanges(); sel.addRange(again);
+        range = again.cloneRange();
+        m.html = body.innerHTML; touch();
+      }
+      const sizeSel = h('select', { class: 'tb-select', 'aria-label': '글자 크기', title: '글자 크기', onchange: e => { styleText('fontSize', e.target.value, SIZES.find(x => x[0] === e.target.value)[1]); e.target.value = ''; } }, SIZES.map(([v, l]) => h('option', { value: v }, l)));
+      const weightSel = h('select', { class: 'tb-select', 'aria-label': '글자 두께', title: '글자 두께', onchange: e => { styleText('fontWeight', e.target.value, WEIGHTS.find(x => x[0] === e.target.value)[1]); e.target.value = ''; } }, WEIGHTS.map(([v, l]) => h('option', { value: v }, l)));
+      prevCleanup?.();
       const blocks = memoBlocks(body, () => { m.html = body.innerHTML; touch(); });
-      destroyBlocks = blocks.destroy;
+      destroyBlocks = () => { blocks.destroy(); document.removeEventListener('selectionchange', keepRange); };
 
       const attBox = h('div', { class: 'attach-list' });
       const imgGrid = h('div', { class: 'img-grid' });
@@ -88,6 +152,7 @@ export default {
         h('button', { class: 'tb', title: '굵게', 'aria-label': '굵게', onclick: () => fmt('bold') }, icon('bold', 16)),
         h('button', { class: 'tb', title: '기울임', 'aria-label': '기울임', onclick: () => fmt('italic') }, icon('italic', 16)),
         h('button', { class: 'tb', title: '목록', 'aria-label': '목록', onclick: () => fmt('insertUnorderedList') }, icon('list', 16)),
+        sizeSel, weightSel,
         blocks.tools,
         h('span', { class: 'nav-sep', style: { width: '1px', height: '20px', margin: '0 4px' } }),
         h('button', { class: 'tb', onclick: () => toggleRecording() }, icon('mic', 16), h('span', { class: 'lb' }, '녹음')),
@@ -117,7 +182,8 @@ export default {
       // ----- attachments -----
       function paintAtts() {
         const imgs = m.atts.filter(a => a.type === 'image');
-        imgGrid.replaceChildren(imgs.map(a => h('figure', null, h('a', { href: a.url, target: '_blank', rel: 'noopener' }, h('img', { src: a.url, alt: a.name || '' })),
+        imgGrid.replaceChildren(imgs.map(a => h('figure', null, h('img', { src: a.url, alt: a.name || '', title: '눌러서 크게 보기', onclick: () => openViewer(a.url, { alt: a.name || '', onDownload: () => saveFile(a) }) }),
+          h('button', { class: 'btn-icon sm dl', 'aria-label': '이미지 다운로드', title: '다운로드', onclick: () => saveFile(a) }, icon('download', 14)),
           h('button', { class: 'btn-icon sm', 'aria-label': '이미지 삭제', onclick: () => removeAtt(a) }, icon('x', 14)))));
         imgGrid.hidden = !imgs.length;
         attBox.replaceChildren(m.atts.filter(a => a.type !== 'image').map(a => {
@@ -135,6 +201,13 @@ export default {
               a.transcript ? sumBtn : null),
             a.summary ? h('div', { class: 'summary' }, a.summary) : null);
         }));
+      }
+      async function saveFile(a) {
+        try {
+          const blob = await (await fetch(a.url)).blob();
+          const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/\+.*/, '');
+          download(blob, a.name && /\.\w+$/.test(a.name) ? a.name : `${a.name || '이미지'}.${ext}`);
+        } catch { toast('이미지를 내려받지 못했어요.'); }
       }
       function removeAtt(a) { m.atts = m.atts.filter(x => x !== a); commit('memos'); paintAtts(); paintList(); }
       async function addFiles(files, type) {
