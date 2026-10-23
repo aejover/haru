@@ -1,14 +1,23 @@
 // pomodoro.js — global timer engine (keeps running on every tab) and the 뽀모도로 view.
 import { h, icon, store, commit, bus, dkey, addDays, fmtClock, fmtDur, fmtShort, gainXP, chime, desktopNotify, toast, seg, switchEl, barChart } from './core.js';
 
-export const MODES = { focus: '집중', short: '짧은 휴식', long: '긴 휴식' };
+// "long" is the 식사 시간 (meal break): picked by hand, never inserted automatically.
+export const MODES = { focus: '집중', short: '짧은 휴식', long: '식사 시간' };
 const cfg = () => store.s.pomoCfg;
 const P = () => store.s.pomo;
 export const durOf = m => (Number(cfg()[m]) || 25) * 60;
+const COUNTDOWN = 3; // seconds of "3, 2, 1" before a focus session starts
 
 export function remaining() {
   const p = P();
   return p.running ? Math.max(0, (p.endAt - Date.now()) / 1000) : p.remain;
+}
+// seconds left in the pre-start countdown (0 when there is none)
+export const countdown = () => { const p = P(); return p.pre ? Math.max(0, Math.ceil((p.pre - Date.now()) / 1000)) : 0; };
+function begin() {
+  const p = P();
+  if (p.remain <= 0) p.remain = durOf(p.mode);
+  p.pre = 0; p.running = true; p.endAt = Date.now() + p.remain * 1000; p.lastTick = Date.now(); p.owner = store.clientId;
 }
 // The device that pressed start keeps the time; other open devices only show it.
 const mine = () => !P().owner || P().owner === store.clientId;
@@ -22,21 +31,23 @@ function credit() {
   if (dt > 0) { const k = dkey(); store.s.focus[k] = (store.s.focus[k] || 0) + dt; }
   p.lastTick = now;
 }
+// Focus sessions open with a 3-second countdown; breaks start right away.
 export function start() {
-  const p = P(); if (p.running) return;
-  if (p.remain <= 0) p.remain = durOf(p.mode);
-  p.running = true; p.endAt = Date.now() + p.remain * 1000; p.lastTick = Date.now(); p.owner = store.clientId;
-  chime('tick');
+  const p = P(); if (p.running || p.pre) return;
+  if (p.mode === 'focus') { p.pre = Date.now() + COUNTDOWN * 1000; p.owner = store.clientId; lastBeep = 0; }
+  else { begin(); chime('tick'); }
   commit('pomo');
 }
 export function pause() {
-  const p = P(); if (!p.running) return;
+  const p = P();
+  if (p.pre) { p.pre = 0; commit('pomo'); return; }
+  if (!p.running) return;
   credit(); p.remain = remaining(); p.running = false;
   commit('pomo');
 }
-export const toggle = () => (P().running ? pause() : start());
-export function reset() { const p = P(); credit(); p.running = false; p.remain = durOf(p.mode); commit('pomo'); }
-export function setMode(m) { const p = P(); credit(); p.mode = m; p.running = false; p.remain = durOf(m); commit('pomo'); }
+export const toggle = () => (P().running || P().pre ? pause() : start());
+export function reset() { const p = P(); credit(); p.pre = 0; p.running = false; p.remain = durOf(p.mode); commit('pomo'); }
+export function setMode(m) { const p = P(); credit(); p.pre = 0; p.mode = m; p.running = false; p.remain = durOf(m); commit('pomo'); }
 export const skip = () => complete(true);
 
 function complete(skipped) {
@@ -44,10 +55,12 @@ function complete(skipped) {
   credit();
   const was = p.mode;
   if (was === 'focus' && !skipped) { p.cycle++; p.sessions ||= {}; const k = dkey(); p.sessions[k] = (p.sessions[k] || 0) + 1; gainXP('pomodoro'); }
-  const next = was === 'focus' ? (p.cycle > 0 && p.cycle % (Number(cfg().every) || 4) === 0 ? 'long' : 'short') : 'focus';
-  p.mode = next; p.remain = durOf(next);
-  p.running = !skipped && !!cfg().auto;
-  if (p.running) { p.endAt = Date.now() + p.remain * 1000; p.lastTick = Date.now(); }
+  const next = was === 'focus' ? 'short' : 'focus';
+  p.mode = next; p.remain = durOf(next); p.pre = 0; p.running = false;
+  if (!skipped && cfg().auto) {
+    if (next === 'focus') { p.pre = Date.now() + COUNTDOWN * 1000; lastBeep = 0; }
+    else begin();
+  }
   if (!skipped) {
     if (cfg().sound) { chime('end'); setTimeout(() => chime('end'), 1300); }
     const title = was === 'focus' ? '집중 시간 끝!' : '휴식 끝!';
@@ -58,9 +71,17 @@ function complete(skipped) {
   commit('pomo');
 }
 
-let lastSave = 0;
+let lastSave = 0, lastBeep = 0;
 export function tickPomo() {
   const p = P();
+  if (p.pre) {
+    if (!mine()) { bus.emit('pomo-tick'); return; }
+    const left = countdown();
+    if (left <= 0) { begin(); if (cfg().sound) chime('go'); commit('pomo'); bus.emit('pomo-tick'); return; }
+    if (left !== lastBeep) { lastBeep = left; if (cfg().sound) chime('count'); }
+    bus.emit('pomo-tick');
+    return;
+  }
   if (!p.running) return;
   if (!mine()) {
     // the starting window went quiet (it saves every 10s while running): take over
@@ -75,6 +96,7 @@ export function tickPomo() {
 // On startup: finish a session that ran out while the app was closed.
 export function resumePomo() {
   const p = P();
+  if (p.pre && Date.now() > p.pre + 5000) { p.pre = 0; commit('pomo'); } // a countdown left over from a closed window
   if (p.running && Date.now() >= p.endAt) { p.owner = store.clientId; complete(false); }
 }
 export const focusToday = () => store.s.focus[dkey()] || 0;
@@ -125,8 +147,7 @@ export default {
       h('div', null,
         row('집중 시간', null, stepper(c.focus, 5, 120, 5, v => { c.focus = v; if (!P().running && P().mode === 'focus') P().remain = v * 60; commit('pomo'); })),
         row('짧은 휴식', null, stepper(c.short, 1, 30, 1, v => { c.short = v; if (!P().running && P().mode === 'short') P().remain = v * 60; commit('pomo'); })),
-        row('긴 휴식', null, stepper(c.long, 5, 60, 5, v => { c.long = v; if (!P().running && P().mode === 'long') P().remain = v * 60; commit('pomo'); })),
-        row('긴 휴식 간격', '집중 몇 번마다 긴 휴식을 할지', stepper(c.every, 2, 8, 1, v => { c.every = v; commit('pomo'); }, '회')),
+        row('식사 시간', '필요할 때 위에서 "식사 시간"을 골라 시작해요', stepper(c.long, 10, 120, 5, v => { c.long = v; if (!P().running && P().mode === 'long') P().remain = v * 60; commit('pomo'); })),
         row('자동으로 다음 단계 시작', null, switchEl(c.auto, v => { c.auto = v; commit('pomo'); })),
         row('종료 알람 소리', null, switchEl(c.sound, v => { c.sound = v; commit('pomo'); if (v) chime('end'); }))));
 
@@ -137,14 +158,23 @@ export default {
 
     function row(label, sub, ctrl) { return h('div', { class: 'set-row' }, h('div', { class: 'lbl' }, label, sub ? h('span', { class: 'sub' }, sub) : null), ctrl); }
 
+    let shownCount = 0;
     function paint() {
       const p = P(); const rem = remaining(); const total = durOf(p.mode);
-      fill.setAttribute('stroke-dashoffset', String(C * (1 - rem / total)));
-      timeEl.textContent = fmtClock(rem);
-      modeEl.textContent = MODES[p.mode];
-      playBtn.replaceChildren(icon(p.running ? 'pause' : 'play', 28));
-      const every = Number(cfg().every) || 4, inCycle = p.cycle % every;
-      dots.replaceChildren(...Array.from({ length: every }, (_, i) => h('i', { class: i < inCycle ? 'on' : '' })));
+      const cd = countdown();
+      ring.classList.toggle('counting', !!cd);
+      fill.setAttribute('stroke-dashoffset', String(cd ? C * (1 - cd / COUNTDOWN) : C * (1 - rem / total)));
+      if (cd) {
+        if (cd !== shownCount) { shownCount = cd; timeEl.replaceChildren(h('span', { class: 'count-num' }, cd)); }
+        modeEl.textContent = '곧 집중 시작';
+      } else {
+        shownCount = 0;
+        timeEl.textContent = fmtClock(rem);
+        modeEl.textContent = MODES[p.mode];
+      }
+      playBtn.replaceChildren(icon(p.running || cd ? 'pause' : 'play', 28));
+      const n = p.sessions?.[dkey()] || 0;
+      dots.textContent = p.mode === 'focus' ? `오늘 ${n + 1}번째 집중` : n ? `오늘 집중 ${n}회 완료` : '';
       todayFocus.replaceChildren(h('b', null, fmtDur(focusToday())), h('span', null, '오늘 집중한 시간'));
       sessions.replaceChildren(h('b', null, `${p.sessions?.[dkey()] || 0}회`), h('span', null, '완료한 집중 세션'));
     }
