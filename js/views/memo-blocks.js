@@ -39,8 +39,36 @@ export function memoBlocks(body, onChange) {
   const divider = () => insertHTML('<hr class="mhr"><div><br></div>');
 
   // ----- toggle -----
+  const HEAD = '<div class="mt-head"><span class="mt-arrow" contenteditable="false" role="button" aria-label="펼치기/접기"></span><div class="mt-title"><br></div></div>';
+  // Repair toggles whose header or body got deleted by editing (and fix memos saved that way).
+  function normalize() {
+    let fixed = false;
+    body.querySelectorAll('.mtoggle').forEach(tg => {
+      let head = [...tg.children].find(c => c.classList.contains('mt-head'));
+      if (!head) { tg.insertAdjacentHTML('afterbegin', HEAD); head = tg.firstElementChild; fixed = true; }
+      if (!head.querySelector('.mt-arrow')) { head.insertAdjacentHTML('afterbegin', '<span class="mt-arrow" contenteditable="false" role="button" aria-label="펼치기/접기"></span>'); fixed = true; }
+      if (!head.querySelector('.mt-title')) { head.insertAdjacentHTML('beforeend', '<div class="mt-title"><br></div>'); fixed = true; }
+      let bodyEl = [...tg.children].find(c => c.classList.contains('mt-body'));
+      if (!bodyEl) { tg.insertAdjacentHTML('beforeend', '<div class="mt-body"><div class="mt-inner"><div><br></div></div></div>'); fixed = true; }
+      else if (!bodyEl.querySelector('.mt-inner')) { const inner = document.createElement('div'); inner.className = 'mt-inner'; inner.append(...bodyEl.childNodes); if (!inner.firstChild) inner.innerHTML = '<div><br></div>'; bodyEl.append(inner); fixed = true; }
+    });
+    return fixed;
+  }
+  if (normalize()) onChange();
+  body.addEventListener('input', () => { if (normalize()) onChange(); });
+  // turn a toggle back into plain lines (its title first, then what was inside)
+  function unwrap(tg) {
+    const title = tg.querySelector('.mt-title');
+    const first = document.createElement('div');
+    first.innerHTML = title && title.textContent.trim() ? title.innerHTML : '<br>';
+    const inner = tg.querySelector('.mt-inner');
+    const rest = inner ? [...inner.childNodes].filter(n => n.nodeType === 1 ? n.textContent.trim() || n.querySelector('img,table,hr') : n.textContent.trim()) : [];
+    tg.replaceWith(first, ...rest);
+    placeCaret(first);
+    onChange();
+  }
   function toggle() {
-    insertHTML('<div class="mtoggle open"><div class="mt-head"><span class="mt-arrow" contenteditable="false" role="button" aria-label="펼치기/접기"></span><div class="mt-title"><br></div></div><div class="mt-body"><div class="mt-inner"><div><br></div></div></div></div><div><br></div>');
+    insertHTML(`<div class="mtoggle open">${HEAD}<div class="mt-body"><div class="mt-inner"><div><br></div></div></div></div><div><br></div>`);
     const all = body.querySelectorAll('.mtoggle .mt-title');
     const t = [...all].reverse().find(x => !x.textContent.trim());
     if (t) placeCaret(t);
@@ -104,6 +132,25 @@ export function memoBlocks(body, onChange) {
       const tg = title.closest('.mtoggle'); tg.classList.add('open');
       const first = tg.querySelector('.mt-inner > *') || tg.querySelector('.mt-inner');
       placeCaret(first); onChange();
+      return;
+    }
+    // Backspace at the very start of a title would delete the arrow; turn the toggle back into text instead
+    if (title && e.key === 'Backspace' && s.isCollapsed) {
+      const r = s.getRangeAt(0).cloneRange(); r.selectNodeContents(title); r.setEnd(s.anchorNode, s.anchorOffset);
+      if (!r.toString().length) { e.preventDefault(); unwrap(title.closest('.mtoggle')); }
+      return;
+    }
+    // Enter on an empty last line inside a toggle leaves the toggle (like Notion)
+    const inner = inside(body, s.anchorNode, 'mt-inner');
+    if (inner && e.key === 'Enter' && !e.shiftKey) {
+      let line = s.anchorNode; while (line && line.parentNode !== inner) line = line.parentNode;
+      if (line && line === inner.lastElementChild && !line.textContent.trim() && !line.querySelector?.('img,table,hr') && inner.children.length > 1) {
+        e.preventDefault();
+        line.remove();
+        const out = document.createElement('div'); out.innerHTML = '<br>';
+        inner.closest('.mtoggle').after(out);
+        placeCaret(out); onChange();
+      }
     }
   });
 

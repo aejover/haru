@@ -4,13 +4,14 @@ import {
   tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify,
 } from '../core.js';
 import { getWeather } from '../weather.js';
+import { editTask, editEvent } from './edit-item.js';
 import { googleConfigured, googleLinked, googleSignIn, gmailSummary } from '../google.js';
 
 export function taskRow(t, k, { onChange } = {}) {
   const done = isDone(t, k);
   const row = h('div', { class: 'task-row' + (done ? ' done' : '') },
     checkEl(done, v => { setDone(t, k, v); row.classList.toggle('done', v); onChange?.(); }, `${t.title} 완료`),
-    h('span', { class: 't-title' }, t.title),
+    h('span', { class: 't-title editable', role: 'button', tabindex: '0', title: '눌러서 수정', onclick: () => editTask(t, onChange), onkeydown: e => { if (e.key === 'Enter') editTask(t, onChange); } }, t.title),
     h('span', { class: 'meta' },
       t.example ? h('span', { class: 'ex-tag' }, '예시') : null,
       t.time ? h('span', { class: 'chip sm line num' }, t.time) : null,
@@ -160,7 +161,7 @@ export default {
       pageTasks.replaceChildren(
         ...group('루틴', 'refresh', routines.map(t => taskRow(t, k, { onChange: () => { paintTasks(); paintCal(); } }))),
         ...group('할 일', 'checklist', todos.map(t => taskRow(t, k, { onChange: () => { paintTasks(); paintCal(); } }))),
-        ...group('오늘 일정', 'calendar', events.map(e => h('a', { class: 'task-row', href: `#calendar/${k}`, style: { textDecoration: 'none' } }, h('span', { class: 'type-dot' }), h('span', { class: 't-title' }, e.title), e.time ? h('span', { class: 'chip sm line num' }, e.time) : null))),
+        ...group('오늘 일정', 'calendar', events.map(e => h('div', { class: 'task-row' }, h('span', { class: 'type-dot' }), h('span', { class: 't-title editable', role: 'button', tabindex: '0', title: '눌러서 수정', onclick: () => editEvent(e, () => { paintTasks(); paintCal(); }) }, e.title), e.time ? h('span', { class: 'chip sm line num' }, e.time) : null))),
         !list.length && !events.length ? h('div', { class: 'empty' }, icon('checklist', 32), '오늘 할 일이 비어 있어요. 아래에 첫 할 일을 적어 보세요.') : null,
         h('div', { class: 'quick-add' }, inp, seg([['once', '오늘만'], ['daily', '매일']], 'once', v => { kind.v = v; }), nagBtn, h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '추가')));
     }
