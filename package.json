@@ -1,0 +1,13 @@
+{
+  "name": "haru",
+  "version": "1.0.0",
+  "description": "하루 — 할 일, 캘린더, 뽀모도로, 메모, 일기, 식단, 문서 작업을 한곳에서",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0"
+  }
+}

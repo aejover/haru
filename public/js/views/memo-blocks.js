@@ -1,0 +1,125 @@
+// memo-blocks.js — 메모장 블록: 표, 구분선, 토글 (접고 펼치는 블록).
+import { h, icon, modal } from '../core.js';
+
+const cellAt = (body, node) => { for (let n = node; n && n !== body; n = n.parentNode) if (n.tagName === 'TD' || n.tagName === 'TH') return n; return null; };
+const inside = (body, node, cls) => { for (let n = node; n && n !== body; n = n.parentNode) if (n.classList?.contains(cls)) return n; return null; };
+const placeCaret = (el, atEnd = false) => {
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(!atEnd);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+};
+
+export function memoBlocks(body, onChange) {
+  // remember where the caret was, so toolbar buttons insert at that spot
+  let saved = null;
+  const onSel = () => { const s = getSelection(); if (s.rangeCount && body.contains(s.anchorNode)) { saved = s.getRangeAt(0).cloneRange(); paintTableBar(); } };
+  document.addEventListener('selectionchange', onSel);
+  function restore() {
+    const s = getSelection();
+    const live = s.rangeCount && body.contains(s.anchorNode) ? s.getRangeAt(0).cloneRange() : null;
+    body.focus({ preventScroll: true });
+    s.removeAllRanges();
+    if (live) s.addRange(live);
+    else if (saved && body.contains(saved.startContainer)) s.addRange(saved);
+    else { const r = document.createRange(); r.selectNodeContents(body); r.collapse(false); s.addRange(r); }
+  }
+  // blocks never go inside a table cell or a toggle title: insert right after that table / toggle
+  function leaveTable() {
+    const s = getSelection();
+    const td = cellAt(body, s.anchorNode);
+    const host = td ? td.closest('table') : inside(body, s.anchorNode, 'mt-title')?.closest('.mtoggle');
+    if (!host) return;
+    const line = document.createElement('div'); line.innerHTML = '<br>';
+    host.after(line);
+    const r = document.createRange(); r.setStart(line, 0); r.collapse(true);
+    s.removeAllRanges(); s.addRange(r);
+  }
+  const insertHTML = html => { restore(); leaveTable(); document.execCommand('insertHTML', false, html); onChange(); };
+
+  // ----- divider -----
+  const divider = () => insertHTML('<hr class="mhr"><div><br></div>');
+
+  // ----- toggle -----
+  function toggle() {
+    insertHTML('<div class="mtoggle open"><div class="mt-head"><span class="mt-arrow" contenteditable="false" role="button" aria-label="펼치기/접기"></span><div class="mt-title"><br></div></div><div class="mt-body"><div class="mt-inner"><div><br></div></div></div></div><div><br></div>');
+    const all = body.querySelectorAll('.mtoggle .mt-title');
+    const t = [...all].reverse().find(x => !x.textContent.trim());
+    if (t) placeCaret(t);
+  }
+  body.addEventListener('click', e => {
+    const arrow = e.target.closest('.mt-arrow');
+    if (!arrow || !body.contains(arrow)) return;
+    e.preventDefault();
+    arrow.closest('.mtoggle').classList.toggle('open');
+    onChange();
+  });
+
+  // ----- table -----
+  function tablePicker() {
+    const grid = h('div', { class: 'tbl-picker', style: { gridTemplateColumns: 'repeat(6, 24px)' } });
+    const label = h('div', { class: 'small muted' }, '표 크기를 고르세요');
+    let pick = [3, 3];
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
+      grid.append(h('i', {
+        style: { width: '24px', height: '24px' },
+        onmouseenter: () => { pick = [r + 1, c + 1]; label.textContent = `${pick[0]} × ${pick[1]} 표`; [...grid.children].forEach((x, i) => x.classList.toggle('on', Math.floor(i / 6) <= r && i % 6 <= c)); },
+        onclick: () => { m.close(); insertTable(pick[0], pick[1]); },
+      }));
+    }
+    const m = modal({ title: '표 넣기', body: h('div', { class: 'col' }, grid, label, h('p', { class: 'tiny muted', style: { margin: 0 } }, '표 안에서 Tab을 누르면 다음 칸으로, 마지막 칸에서 누르면 줄이 추가돼요.')) });
+  }
+  function insertTable(rows, cols) {
+    const tr = () => `<tr>${'<td><br></td>'.repeat(cols)}</tr>`;
+    insertHTML(`<table class="mtable"><tbody>${tr().repeat(rows)}</tbody></table><div><br></div>`);
+    const t = [...body.querySelectorAll('table.mtable')].pop();
+    if (t) placeCaret(t.querySelector('td'));
+  }
+  function tableOp(op) {
+    restore();
+    const td = cellAt(body, getSelection().anchorNode); if (!td) return;
+    const tr = td.parentNode, table = td.closest('table'), idx = [...tr.children].indexOf(td);
+    const blank = () => { const x = document.createElement('td'); x.innerHTML = '<br>'; return x; };
+    if (op === 'row') { const n = document.createElement('tr'); [...tr.children].forEach(() => n.append(blank())); tr.after(n); placeCaret(n.children[idx] || n.firstChild); }
+    if (op === 'col') { table.querySelectorAll('tr').forEach(row => { const ref = row.children[idx]; ref ? ref.after(blank()) : row.append(blank()); }); placeCaret(tr.children[idx + 1]); }
+    if (op === 'delRow') { const next = tr.nextElementSibling || tr.previousElementSibling; tr.remove(); if (next) placeCaret(next.children[Math.min(idx, next.children.length - 1)]); else table.remove(); }
+    if (op === 'delCol') { table.querySelectorAll('tr').forEach(row => row.children[idx]?.remove()); if (!table.querySelector('td')) table.remove(); }
+    if (op === 'delTable') { const after = table.nextElementSibling; table.remove(); if (after) placeCaret(after); }
+    onChange(); paintTableBar();
+  }
+  body.addEventListener('keydown', e => {
+    if (e.isComposing) return;
+    const s = getSelection();
+    const td = cellAt(body, s.anchorNode);
+    if (td && e.key === 'Tab') {
+      e.preventDefault();
+      const cells = [...td.closest('table').querySelectorAll('td')];
+      const i = cells.indexOf(td) + (e.shiftKey ? -1 : 1);
+      if (i >= cells.length) { tableOp('row'); placeCaret(td.closest('table').querySelector('tr:last-child td')); }
+      else if (i >= 0) placeCaret(cells[i], true);
+      return;
+    }
+    // Enter in a toggle title jumps into its body (and opens it) instead of splitting the title
+    const title = inside(body, s.anchorNode, 'mt-title');
+    if (title && e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const tg = title.closest('.mtoggle'); tg.classList.add('open');
+      const first = tg.querySelector('.mt-inner > *') || tg.querySelector('.mt-inner');
+      placeCaret(first); onChange();
+    }
+  });
+
+  // table tools appear only while the caret is in a table
+  const tableBar = h('div', { class: 'memo-tablebar glass', hidden: true });
+  const btn = (label, op, ic) => h('button', { class: 'tb', onmousedown: e => e.preventDefault(), onclick: () => tableOp(op) }, ic ? icon(ic, 15) : null, h('span', { class: 'lb' }, label));
+  tableBar.append(h('b', { class: 'small', style: { margin: '0 6px' } }, '표'), btn('아래에 줄 추가', 'row', 'rowAdd'), btn('오른쪽에 칸 추가', 'col', 'colAdd'), btn('줄 삭제', 'delRow'), btn('칸 삭제', 'delCol'), h('span', { class: 'spacer' }), btn('표 삭제', 'delTable', 'trash'));
+  function paintTableBar() { const s = getSelection(); tableBar.hidden = !(s.rangeCount && cellAt(body, s.anchorNode)); }
+
+  return {
+    tableBar,
+    tools: [
+      h('button', { class: 'tb', title: '표', onmousedown: e => e.preventDefault(), onclick: tablePicker }, icon('table', 16), h('span', { class: 'lb' }, '표')),
+      h('button', { class: 'tb', title: '구분선', onmousedown: e => e.preventDefault(), onclick: divider }, icon('hr', 16), h('span', { class: 'lb' }, '구분선')),
+      h('button', { class: 'tb', title: '토글 (접고 펼치는 블록)', onmousedown: e => e.preventDefault(), onclick: toggle }, icon('down', 16), h('span', { class: 'lb' }, '토글')),
+    ],
+    destroy: () => document.removeEventListener('selectionchange', onSel),
+  };
+}

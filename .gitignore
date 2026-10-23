@@ -1,0 +1,7 @@
+# 내 기록, 사진·녹음, Claude API 키는 이 컴퓨터에만 둡니다
+data/
+node_modules/
+.claude/
+*.log
+bat-out.txt
+bat-err.txt
