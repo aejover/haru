@@ -44,8 +44,8 @@ export function applyTheme(mode = store.s.settings.theme, animate = false, origi
   const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
   document.documentElement.classList.add('theme-vt');
   const t = document.startViewTransition(set);
-  t.finished.finally(() => document.documentElement.classList.remove('theme-vt'));
-  t.ready.then(() => document.documentElement.animate({ clipPath: [`circle(0 at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)', pseudoElement: '::view-transition-new(root)' }));
+  t.finished.finally(() => document.documentElement.classList.remove('theme-vt')).catch(() => {});
+  t.ready.then(() => document.documentElement.animate({ clipPath: [`circle(0 at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
 }
 export const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
 export function toggleTheme(e) {
@@ -77,7 +77,9 @@ function route(animate = true) {
   html.classList.add('vt-running');
   try {
     const t = document.startViewTransition(run);
-    t.finished.finally(() => html.classList.remove('vt-running'));
+    // a skipped transition (switching tabs quickly) rejects these; that's expected
+    t.ready.catch(() => {});
+    t.finished.finally(() => html.classList.remove('vt-running')).catch(() => {});
   } catch { run(); }
   // a window that isn't drawing frames never starts the animation; switch anyway
   setTimeout(() => { if (!done) { run(); html.classList.remove('vt-running'); } }, 450);
