@@ -247,17 +247,14 @@ async function tick() {
     }
   }
 
-  // alarms: push to the phone at the minute (the app itself plays the sound when it's open)
-  const weekday = now.getDay();
-  for (const a of state.alarms || []) {
-    const at = toMin(a.time);
-    if (!a.on || at == null || nowMin < at || nowMin - at > 1) continue;
-    if (a.repeat === 'once' && a.date !== today) continue;
-    if (a.repeat === 'weekly' && a.days?.length && !a.days.includes(weekday)) continue;
-    const key = `alarm|${a.id}|${today}|${a.time}`;
-    if (sentLog[key]) continue;
-    sentLog[key] = Date.now(); dirty = true;
-    pushNotify({ title: a.label || '알람', message: `${a.time} 알람이에요.${a.math ? ' 하루를 열어 문제를 풀어야 꺼져요.' : ''}`, tags: ['alarm_clock'], priority: 5, kind: 'alarm', ref: a.id });
+  // power nap: push to the phone when the nap ends (the app itself plays the sound when it's open)
+  const nap = state.nap;
+  if (nap?.end && Date.now() >= nap.end && Date.now() - nap.end < 5 * 60e3) {
+    const key = `nap|${nap.end}`;
+    if (!sentLog[key]) {
+      sentLog[key] = Date.now(); dirty = true;
+      pushNotify({ title: '파워냅 끝', message: `${nap.min}분 잤어요. 일어날 시간이에요!${nap.math ? ' 하루를 열어 문제를 풀어야 꺼져요.' : ''}`, tags: ['alarm_clock'], priority: 5, kind: 'alarm', ref: 'nap' });
+    }
   }
 
   const briefAt = Number(s.briefHour ?? 8) * 60;

@@ -7,13 +7,15 @@ import { getWeather } from '../weather.js';
 import { editTask, editEvent } from './edit-item.js';
 import { googleConfigured, googleLinked, googleSignIn, gmailSummary } from '../google.js';
 
-export function taskRow(t, k, { onChange } = {}) {
+export function taskRow(t, k, { onChange, hideGoal } = {}) {
   const done = isDone(t, k);
+  const goal = t.goalId && !hideGoal ? (store.s.goals || []).find(g => g.id === t.goalId) : null;
   const row = h('div', { class: 'task-row' + (done ? ' done' : '') },
     checkEl(done, v => { setDone(t, k, v); row.classList.toggle('done', v); onChange?.(); }, `${t.title} 완료`),
     h('span', { class: 't-title editable', role: 'button', tabindex: '0', title: '눌러서 수정', onclick: () => editTask(t, onChange), onkeydown: e => { if (e.key === 'Enter') editTask(t, onChange); } }, t.title),
     h('span', { class: 'meta' },
       t.example ? h('span', { class: 'ex-tag' }, '예시') : null,
+      goal ? h('a', { class: 'goal-tag', href: '#goals', title: `목표: ${goal.title}`, style: { '--gc': goal.color } }, h('i'), goal.title) : null,
       t.time ? h('span', { class: 'chip sm line num' }, t.time) : null,
       t.mode === 'nag' ? h('span', { class: 'nag-badge', title: '독촉 모드: 할 때까지 알림' }, icon('bell', 12), '독촉') : null,
       h('button', { class: 'btn-icon sm del', 'aria-label': `${t.title} 삭제`, onclick: () => { removeTask(t); onChange?.(); } }, icon('x', 15))));
@@ -132,7 +134,7 @@ export default {
     // ----- tasks ⇄ calendar -----
     const swipe = h('div', { class: 'swipe' });
     const dots = h('div', { class: 'dots' }, h('i', { class: 'on' }), h('i'));
-    const tabs = seg([['0', '오늘 할 일 · 루틴'], ['1', '캘린더']], '0', v => swipe.scrollTo({ left: swipe.clientWidth * Number(v), behavior: 'smooth' }));
+    const tabs = seg([['0', '할 일'], ['1', '캘린더']], '0', v => swipe.scrollTo({ left: swipe.clientWidth * Number(v), behavior: 'smooth' }));
     const sum = h('span', { class: 'today-sum num' });
     const pageTasks = h('div', { class: 'swipe-page' });
     const pageCal = h('div', { class: 'swipe-page' });

@@ -16,7 +16,7 @@
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "오늘 할 일", "url": "./#checklist", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "할 일", "url": "./#checklist", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "뽀모도로", "url": "./#pomodoro", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "메모장", "url": "./#memo", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "일기", "url": "./#diary", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }

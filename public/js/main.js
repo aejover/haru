@@ -11,9 +11,11 @@ import home from './views/home.js';
 import memo from './views/memo.js';
 import calendar from './views/calendar.js';
 import timetable from './views/timetable.js';
-import alarm from './views/alarm.js';
+import nap from './views/nap.js';
 import goals from './views/goals.js';
-import { tickAlarms, nextRing } from './alarm.js';
+import routine, { routineHint } from './views/routine.js';
+import money from './views/money.js';
+import { tickAlarms, napLeft } from './alarm.js';
 import checklist from './views/checklist.js';
 import diary from './views/diary.js';
 import diet from './views/diet.js';
@@ -22,10 +24,11 @@ import profile from './views/profile.js';
 import settings from './views/settings.js';
 import docs from './views/docs.js';
 
-const VIEWS = { home, goals, memo, calendar, timetable, pomodoro, alarm, youtube, docs, checklist, diary, diet, growth, profile, settings };
+// "alarm" is the old address of the power-nap tab
+const VIEWS = { home, checklist, goals, routine, memo, calendar, timetable, pomodoro, nap, alarm: nap, youtube, docs, money, diary, diet, growth, profile, settings };
 const NAV = [
-  ['home', '홈'], ['goals', '목표'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['alarm', '알람'], ['youtube', '유튜브 · 라디오'],
-  ['docs', '문서 작업'], ['checklist', '오늘 할 일'], ['diary', '일기'], ['diet', '건강'], ['growth', '커리큘럼'],
+  ['home', '홈'], ['checklist', '할 일'], ['goals', '목표'], ['routine', '루틴'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['nap', '파워냅'],
+  ['youtube', '유튜브 · 라디오'], ['docs', '문서 작업'], ['money', '가계부'], ['diary', '일기'], ['diet', '건강'], ['growth', '커리큘럼'],
   '-', ['profile', '프로필'], ['settings', '설정'],
 ];
 export const viewTitle = id => VIEWS[id]?.title || '';
@@ -109,9 +112,8 @@ const drawer = () => $('#drawer');
 function paintDrawer() {
   const k = dkey();
   const left = tasksOn(k).filter(t => !isDone(t, k)).length;
-  const upcoming = (store.s.alarms || []).filter(a => nextRing(a) === k).map(a => a.time).filter(t => t >= `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`).sort()[0];
-  const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '', alarm: upcoming || '' };
-  const ico = { home: 'home', goals: 'target', memo: 'memo', calendar: 'calendar', timetable: 'table', alarm: 'bell', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
+  const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '', nap: store.s.nap ? fmtClock(Math.ceil(napLeft() / 1000)) : '', routine: routineHint() };
+  const ico = { home: 'home', goals: 'target', routine: 'routine', memo: 'memo', calendar: 'calendar', timetable: 'table', nap: 'moon', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', money: 'wallet', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
   const items = NAV.map((n, i) => n === '-' ? h('div', { class: 'nav-sep' }) :
     h('button', { class: 'nav-item' + (current?.id === n[0] ? ' on' : ''), style: { transitionDelay: `${i * 22}ms` }, onclick: () => go(n[0]) },
       icon(ico[n[0]], 20), h('span', null, n[1]), hints[n[0]] ? h('span', { class: 'hint num' }, hints[n[0]]) : null));

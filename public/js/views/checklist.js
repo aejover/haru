@@ -1,12 +1,13 @@
-﻿// checklist.js — 오늘 할 일: 매일 vs 오늘만, 일반 vs 독촉(안 하면 할 때까지 알림, 밀리면 3·5·10회).
+// checklist.js — 할 일: 매일 vs 오늘만, 일반 vs 독촉(안 하면 할 때까지 알림, 밀리면 3·5·10회).
 import {
   h, icon, store, commit, dkey, addDays, fmtDay, fmtShort, WEEK, seg, checkEl, toast, desktopNotify,
   tasksOn, isDone, setDone, addTask, removeTask, visibleTasks, dayStats, overdueDays, nagCount, applies,
 } from '../core.js';
 import { taskRow } from './home.js';
+import { goalSelect } from './edit-item.js';
 
 export default {
-  id: 'checklist', title: '오늘 할 일', icon: 'checklist',
+  id: 'checklist', title: '할 일', icon: 'checklist',
   render(el, ctx) {
     el.classList.add('stagger');
     const s = store.s;
@@ -28,10 +29,12 @@ export default {
     const kindSeg = seg([['once', '오늘만 (한 번)'], ['daily', '매일 반복']], 'once', v => { f.kind = v; dayChips.hidden = v !== 'daily'; date.hidden = v === 'daily'; });
     const modeSeg = seg([['normal', '일반'], ['nag', '독촉']], 'normal', v => { f.mode = v; modeHint.textContent = v === 'nag' ? '안 하면 할 때까지 알림이 가요. 밀리면 다음 날 3번, 다다음 날 5번, 3일째부터 10번.' : '알림 없이 체크만 해요.'; });
     const modeHint = h('div', { class: 'small muted' }, '알림 없이 체크만 해요.');
+    const goal = goalSelect();
+    goal.style.width = 'auto';
     function add() {
       const t = title.value.trim();
       if (!t) { title.focus(); return; }
-      addTask({ title: t, kind: f.kind, date: date.value || dkey(), mode: f.mode, time: time.value || undefined, days: f.kind === 'daily' ? f.days : undefined });
+      addTask({ title: t, kind: f.kind, date: date.value || dkey(), mode: f.mode, time: time.value || undefined, days: f.kind === 'daily' ? f.days : undefined, goalId: goal.value || undefined });
       if (f.mode === 'nag') {
         desktopNotify('독촉 모드 켜짐', `"${t}"을(를) 끝낼 때까지 알려 드릴게요.`);
         if (!s.settings.ntfyTopic) toast('휴대폰으로도 독촉받으려면 설정에서 휴대폰 알림을 연결하세요.', { action: { label: '설정', onClick: () => { location.hash = 'settings'; } }, duration: 6000 });
@@ -42,7 +45,7 @@ export default {
     const form = h('section', { class: 'glass card col' },
       h('h2', { class: 'h2' }, '새 할 일'),
       h('div', { class: 'row wrap' }, h('div', { class: 'grow', style: { minWidth: '220px' } }, title), h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '추가')),
-      h('div', { class: 'row wrap' }, kindSeg, modeSeg, date, time),
+      h('div', { class: 'row wrap' }, kindSeg, modeSeg, date, time, goal),
       dayChips, modeHint);
 
     // ----- nag ladder explanation -----
@@ -62,7 +65,7 @@ export default {
       const k = dkey();
       const list = tasksOn(k);
       const st = dayStats(k);
-      head.replaceChildren(h('h1', { class: 'h1' }, '오늘 할 일'), h('span', { class: 'chip line' }, fmtDay(k)),
+      head.replaceChildren(h('h1', { class: 'h1' }, '할 일'), h('span', { class: 'chip line' }, fmtDay(k)),
         h('span', { class: 'chip ink num' }, `${st.done}/${st.total} · ${Math.round(st.pct)}%`));
 
       // overdue nag tasks

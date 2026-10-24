@@ -5,8 +5,10 @@ import {
 } from './core.js';
 import { start as pomoStart, pause as pomoPause, reset as pomoReset, setMode } from './pomodoro.js';
 import { play as ytPlay, parseYT } from './youtube.js';
+import { startNap } from './alarm.js';
+import { CATS } from './views/money.js';
 
-const TABS = ['home', 'goals', 'memo', 'calendar', 'timetable', 'alarm', 'pomodoro', 'youtube', 'docs', 'checklist', 'diary', 'diet', 'growth', 'profile', 'settings'];
+const TABS = ['home', 'checklist', 'goals', 'routine', 'memo', 'calendar', 'timetable', 'pomodoro', 'nap', 'youtube', 'docs', 'money', 'diary', 'diet', 'growth', 'profile', 'settings'];
 const DATE = { type: 'string', description: 'YYYY-MM-DD 형식 날짜' };
 const TOOLS = [
   { name: 'add_task', description: '할 일 또는 매일 하는 루틴을 추가한다. kind=once는 특정 날짜에 한 번, daily는 매일(또는 days 요일마다) 반복. mode=nag는 안 하면 계속 알림을 보내는 독촉 모드.', input_schema: { type: 'object', properties: { title: { type: 'string' }, kind: { type: 'string', enum: ['once', 'daily'] }, date: DATE, time: { type: 'string', description: 'HH:MM' }, mode: { type: 'string', enum: ['normal', 'nag'] }, days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: '반복 요일 (0=일요일 … 6=토요일). 비우면 매일' } }, required: ['title', 'kind'] } },
@@ -17,6 +19,8 @@ const TOOLS = [
   { name: 'add_memo', description: '메모장에 새 메모를 만든다.', input_schema: { type: 'object', properties: { title: { type: 'string' }, text: { type: 'string' } }, required: ['title', 'text'] } },
   { name: 'write_diary', description: '일기를 작성하거나 같은 날짜의 일기를 덮어쓴다. rating: 5=최고의 날, 4=좋은 날, 3=보통 날, 2=안 좋은 날, 1=최악의 날.', input_schema: { type: 'object', properties: { date: DATE, title: { type: 'string' }, body: { type: 'string' }, emotion: { type: 'string' }, rating: { type: 'integer', minimum: 1, maximum: 5 } }, required: ['title', 'body'] } },
   { name: 'log_meal', description: '식단에 먹은 음식을 기록한다. 영양 정보는 1회 제공량 기준 추정치를 넣는다.', input_schema: { type: 'object', properties: { name: { type: 'string' }, meal: { type: 'string', enum: ['breakfast', 'lunch', 'dinner', 'snack'] }, kcal: { type: 'number' }, carb: { type: 'number' }, protein: { type: 'number' }, fat: { type: 'number' }, date: DATE }, required: ['name', 'meal', 'kcal', 'carb', 'protein', 'fat'] } },
+  { name: 'log_money', description: '가계부에 수입이나 지출을 기록한다. cat은 분류 id.', input_schema: { type: 'object', properties: { type: { type: 'string', enum: ['out', 'in'] }, amount: { type: 'integer', minimum: 1, description: '원' }, cat: { type: 'string', enum: [...CATS.out, ...CATS.in].map(c => c[0]), description: [...CATS.out, ...CATS.in].map(c => `=`).join(', ') }, memo: { type: 'string' }, date: DATE, method: { type: 'string', enum: ['카드', '현금', '계좌이체', '간편결제'] } }, required: ['type', 'amount', 'cat'] } },
+  { name: 'start_nap', description: '파워냅 타이머를 시작한다. minutes분 뒤 알람이 울린다.', input_schema: { type: 'object', properties: { minutes: { type: 'integer', minimum: 1, maximum: 180 } }, required: ['minutes'] } },
   { name: 'pomodoro', description: '뽀모도로 타이머를 조작한다.', input_schema: { type: 'object', properties: { action: { type: 'string', enum: ['start', 'pause', 'reset', 'break'] }, minutes: { type: 'integer', minimum: 1, maximum: 180 } }, required: ['action'] } },
   { name: 'set_motivation', description: '홈 화면의 동기부여 문구를 바꾼다.', input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
   { name: 'get_stats', description: '오늘/어제 완료율, 이번 주/지난주 비교, 집중 시간, 레벨·티어·전적을 가져온다.', input_schema: { type: 'object', properties: {} } },
@@ -25,7 +29,7 @@ const TOOLS = [
 ];
 
 const SYSTEM = `너는 '하루'라는 개인 생산성 앱 안에 사는 비서 Claude야. 사용자는 한국어를 쓴다.
-앱에는 홈(시계·날씨·할 일), 메모장, 캘린더, 뽀모도로, 유튜브·라디오, 문서 작업(워드·한글·엑셀·PPT), 오늘 할 일(체크리스트, 독촉 모드), 일기, 식단, 커리큘럼(성장 통계), 프로필, 설정 탭이 있다.
+앱에는 홈(시계·날씨·할 일), 할 일(체크리스트, 독촉 모드, 목표와 연결), 목표(장기 목표를 오늘·이번 주·이번 달 단기 목표로), 루틴(아침·저녁 루틴을 순서대로 타이머로 진행), 메모장, 캘린더, 시간표, 뽀모도로, 파워냅(정한 시간만큼 자고 알람), 유튜브·라디오, 문서 작업(워드·한글·엑셀·PPT), 가계부(수입·지출, 예산, 빌린 돈·빌려준 돈), 일기, 건강(수면·에너지, 식단), 커리큘럼(성장 통계), 프로필, 설정 탭이 있다.
 사용자가 무언가를 해 달라고 하면 도구를 써서 직접 처리하고, 처리한 내용을 한두 문장으로 알려 준다. 날짜는 메시지 앞의 [지금: …] 정보를 기준으로 계산한다.
 질문에는 짧고 분명하게, 친근한 존댓말로 답한다. 목록이 필요할 때만 줄바꿈 목록을 쓰고, 마크다운 제목이나 표는 쓰지 않는다.
 정보가 부족해 도구를 쓸 수 없으면 추측하지 말고 무엇이 필요한지 묻는다. 문서 작성은 문서 작업 탭의 AI 모드에서 하면 문서에 바로 반영된다고 안내한다.`;
@@ -35,6 +39,10 @@ const SUGGEST = {
   calendar: ['이번 주 일정 알려줘', '매주 월수금 7시 운동 루틴 추가', '금요일 저녁 7시 약속 추가'],
   checklist: ['매일 밤 10시 약 먹기, 독촉 모드로', '오늘 남은 할 일 뭐야?'],
   pomodoro: ['50분 집중 시작', '오늘 집중 시간 얼마나 돼?'],
+  money: ['점심 김밥 4500원 카드로 썼어', '이번 달 어디에 돈을 많이 썼어?'],
+  nap: ['20분 파워냅 시작해줘'],
+  routine: ['아침 루틴에 넣을 만한 거 추천해줘'],
+  goals: ['토익 900점 목표를 이번 주 할 일로 나눠줘'],
   diary: ['오늘 일기 쓰는 것 좀 도와줘', '이번 달 기분이 어땠는지 요약해줘'],
   diet: ['점심에 김치찌개랑 공깃밥 먹었어', '단백질 많은 저녁 메뉴 추천'],
   growth: ['이번 주 지난주랑 비교해줘', '티어 올리려면 뭘 해야 해?'],
@@ -109,6 +117,17 @@ function runTool(name, input) {
       if (input.action === 'reset') pomoReset();
       return { ok: true, mode: s.pomo.mode, running: s.pomo.running };
     }
+    case 'log_money': {
+      const m = (s.money ||= { tx: [], fixed: [], budget: { total: 0, cats: {} }, debts: [] });
+      m.tx.push({ id: uid(), type: input.type === 'in' ? 'in' : 'out', amount: Math.round(input.amount), cat: input.cat, memo: input.memo || '', date: input.date || today, method: input.method || '카드' });
+      gainXP('money'); commit('money');
+      return { ok: true };
+    }
+    case 'start_nap': {
+      const c = s.napCfg || {};
+      startNap(input.minutes, { sleep: input.minutes, sound: c.sound || 'sunrise', math: !!c.math, mathLevel: c.mathLevel || 'normal', mathCount: c.mathCount || 2 });
+      return { ok: true, endsAt: new Date(s.nap.end).toTimeString().slice(0, 5) };
+    }
     case 'set_motivation': { s.profile.motivation = input.text; commit('profile'); return { ok: true }; }
     case 'get_stats': {
       const t = dayStats(today), y = dayStats(addDays(today, -1));
@@ -126,7 +145,7 @@ function runTool(name, input) {
     default: throw new Error('알 수 없는 도구: ' + name);
   }
 }
-const TOOL_LABEL = { add_task: '할 일 추가', complete_task: '완료 처리', list_tasks: '할 일 확인', add_event: '일정 추가', list_events: '일정 확인', add_memo: '메모 작성', write_diary: '일기 작성', log_meal: '식단 기록', pomodoro: '뽀모도로', set_motivation: '문구 변경', get_stats: '통계 확인', play_youtube: '유튜브 재생', open_tab: '탭 이동' };
+const TOOL_LABEL = { add_task: '할 일 추가', complete_task: '완료 처리', list_tasks: '할 일 확인', add_event: '일정 추가', list_events: '일정 확인', add_memo: '메모 작성', write_diary: '일기 작성', log_meal: '식단 기록', log_money: '가계부 기록', start_nap: '파워냅 시작', pomodoro: '뽀모도로', set_motivation: '문구 변경', get_stats: '통계 확인', play_youtube: '유튜브 재생', open_tab: '탭 이동' };
 
 export function initAssistant(shell) {
   api = shell;
