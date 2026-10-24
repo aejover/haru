@@ -3,6 +3,14 @@ import { h, store, commit, modal, seg, toast, confirmDialog, removeTask, WEEK, d
 
 const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
 
+// pick which 목표 a task belongs to (goals still in progress, plus the one it's already on)
+export function goalSelect(value = '') {
+  const list = (store.s.goals || []).filter(g => g.id === value || (!g.achieved && g.end >= dkey()));
+  const sel = h('select', { class: 'select', 'aria-label': '연결할 목표' }, h('option', { value: '' }, '목표 없음'), list.map(g => h('option', { value: g.id, selected: g.id === value }, g.title)));
+  sel.hidden = !list.length;
+  return sel;
+}
+
 export function editEvent(ev, onDone) {
   const title = h('input', { class: 'input', value: ev.title });
   const date = h('input', { class: 'input', type: 'date', value: ev.date });
@@ -39,13 +47,15 @@ export function editTask(t, onDone) {
   const daysField = h('div', { class: 'field' }, h('span', null, '반복 요일 (아무것도 안 고르면 매일)'), dayRow);
   const sync = () => { dateField.hidden = v.kind !== 'once'; daysField.hidden = v.kind !== 'daily'; };
   sync();
+  const goal = goalSelect(t.goalId || '');
   modal({
-    title: t.kind === 'daily' ? '루틴 수정' : '할 일 수정',
+    title: t.kind === 'daily' ? '반복 할 일 수정' : '할 일 수정',
     body: h('div', { class: 'col' },
       field('제목', title),
-      h('div', { class: 'row wrap' }, seg([['once', '할 일 (한 번)'], ['daily', '루틴 (반복)']], v.kind, k => { v.kind = k; sync(); }), seg([['normal', '일반'], ['nag', '독촉']], v.mode, m => { v.mode = m; })),
+      h('div', { class: 'row wrap' }, seg([['once', '할 일 (한 번)'], ['daily', '매일 반복']], v.kind, k => { v.kind = k; sync(); }), seg([['normal', '일반'], ['nag', '독촉']], v.mode, m => { v.mode = m; })),
       h('div', { class: 'grid-2' }, dateField, field('시간 (선택)', time)),
-      daysField),
+      daysField,
+      goal.hidden ? null : field('목표와 연결', goal)),
     actions: [
       { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${t.title}"을(를) 삭제할까요?`, { ok: '삭제', danger: true }))) return false; removeTask(t); onDone?.(); } },
       { label: '취소' },
@@ -54,6 +64,7 @@ export function editTask(t, onDone) {
         t.title = title.value.trim();
         t.mode = v.mode;
         if (time.value) t.time = time.value; else delete t.time;
+        if (goal.value) t.goalId = goal.value; else delete t.goalId;
         if (v.kind === 'once') {
           if (t.kind === 'daily') { t.start = date.value || dkey(); delete t.end; }
           t.kind = 'once'; t.date = date.value || dkey(); delete t.days;

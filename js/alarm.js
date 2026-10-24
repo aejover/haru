@@ -1,6 +1,6 @@
-// alarm.js — alarm engine: synthesized alarm sounds, the per-second check, and the ringing screen
-// (with optional math problems that must be solved to turn it off).
-import { h, icon, store, commit, uid, dkey, addDays, pad, WEEK, desktopNotify, toast } from './core.js';
+// alarm.js — power-nap alarm engine: synthesized alarm sounds, the per-second check, and the ringing
+// screen (with optional math problems that must be solved to turn it off).
+import { h, icon, store, commit, dkey, pad, desktopNotify, toast, gainXP } from './core.js';
 
 // ---------- sounds (generated with Web Audio, so they work offline) ----------
 export const SOUNDS = {
@@ -37,60 +37,40 @@ export function playLoop(key) {
 }
 export function preview(key) { try { playOnce(key, 0.25); setTimeout(() => playOnce(key, 0.25), SOUNDS[key]?.step || 900); } catch { toast('소리를 재생하지 못했어요.'); } }
 
-// ---------- schedule ----------
-export const repeatText = a => a.repeat === 'daily' ? '매일' : a.repeat === 'weekly' ? (a.days?.length ? `매주 ${a.days.slice().sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7)).map(d => WEEK[d]).join('·')}` : '매주') : a.date === dkey() ? '오늘 한 번' : a.date === addDays(dkey(), 1) ? '내일 한 번' : '한 번';
-// date of the next ring at or after "now" (YYYY-MM-DD), or null
-export function nextRing(a, now = new Date()) {
-  if (!a.on) return null;
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const [hh, mm] = a.time.split(':').map(Number); const at = hh * 60 + mm;
-  for (let i = 0; i < 8; i++) {
-    const k = addDays(dkey(now), i), d = new Date(now); d.setDate(d.getDate() + i);
-    if (i === 0 && at < nowMin) continue;
-    if (a.repeat === 'once' && k !== a.date) continue;
-    if (a.repeat === 'weekly' && a.days?.length && !a.days.includes(d.getDay())) continue;
-    return k;
-  }
-  return null;
+// ---------- power nap ----------
+// store.s.nap = { start, end, min, sound, math, mathLevel, mathCount } while a nap is running
+export const NAP_PRESETS = [
+  [10, '짧게 충전', '깊이 안 들어가서 바로 개운해요'],
+  [20, '파워냅', '가장 추천 · 집중력과 기분이 살아나요'],
+  [30, '조금 길게', '깰 때 잠깐 멍할 수 있어요'],
+  [90, '한 사이클', '깊은 잠까지 한 바퀴 · 밤잠이 부족할 때'],
+];
+export const napLeft = () => { const n = store.s?.nap; return n ? Math.max(0, n.end - Date.now()) : 0; };
+export function startNap(min, opts = {}) {
+  const now = Date.now();
+  store.s.nap = { start: now, end: now + min * 60e3, min, ...opts };
+  commit('nap');
 }
-export function untilText(a) {
-  const k = nextRing(a); if (!k) return '';
-  const [hh, mm] = a.time.split(':').map(Number);
-  const target = new Date(k + 'T00:00:00'); target.setHours(hh, mm, 0, 0);
-  const min = Math.max(0, Math.round((target - Date.now()) / 60000));
-  return min < 60 ? `${min}분 뒤 울려요` : `${Math.floor(min / 60)}시간 ${min % 60}분 뒤 울려요`;
-}
-export const newAlarm = () => {
-  const d = new Date(Date.now() + 60 * 60e3);
-  return { id: uid(), time: `${pad(d.getHours())}:00`, label: '', on: true, repeat: 'daily', days: [1, 2, 3, 4, 5], date: dkey(), sound: 'bell', math: false, mathLevel: 'normal', mathCount: 3, snooze: 5 };
-};
-// once-alarms get the right date: today if the time is still ahead, otherwise tomorrow
-export function fixDate(a) {
-  if (a.repeat !== 'once') return;
-  const [hh, mm] = a.time.split(':').map(Number), now = new Date();
-  a.date = hh * 60 + mm > now.getHours() * 60 + now.getMinutes() ? dkey() : addDays(dkey(), 1);
-}
+export function cancelNap() { delete store.s.nap; commit('nap'); }
+export function extendNap(min) { const n = store.s.nap; if (!n) return; n.end += min * 60e3; n.min += min; commit('nap'); }
 
 let ringing = null;
-let snoozes = {}; // alarm id -> timestamp when the snoozed alarm rings again
+const snoozes = {}; // alarm id -> { at, a }: when the snoozed alarm rings again
 export function tickAlarms() {
-  const list = store.s?.alarms; if (!list?.length || ringing) return;
-  const now = new Date(), k = dkey(now), hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  for (const a of list) {
-    if (snoozes[a.id] && Date.now() >= snoozes[a.id]) { delete snoozes[a.id]; ring(a, true); return; }
-    if (!a.on || a.time !== hm || now.getSeconds() > 40) continue;
-    if (a.repeat === 'once' && a.date !== k) continue;
-    if (a.repeat === 'weekly' && a.days?.length && !a.days.includes(now.getDay())) continue;
-    const key = `${k} ${hm}`;
-    if (a.lastRang === key) continue;
-    a.lastRang = key;
-    if (a.repeat === 'once') a.on = false;
-    commit('alarms');
-    ring(a);
-    return;
-  }
+  if (ringing || !store.s) return;
+  for (const [id, z] of Object.entries(snoozes)) if (Date.now() >= z.at) { delete snoozes[id]; ring(z.a, true); return; }
+  const n = store.s.nap;
+  if (!n || Date.now() < n.end) return;
+  delete store.s.nap;
+  // only ring if the nap ended recently; a window opened hours later just clears it
+  if (Date.now() - n.end > 10 * 60e3) { commit('nap'); return; }
+  const log = (store.s.naps ||= []);
+  log.push({ date: dkey(), start: n.start, min: n.min });
+  if (log.length > 200) log.splice(0, log.length - 200);
+  commit('nap');
+  gainXP('nap');
+  ring({ id: 'nap', label: `파워냅 ${n.min}분 끝`, sound: n.sound || 'sunrise', math: !!n.math, mathLevel: n.mathLevel || 'normal', mathCount: n.mathCount || 2, snooze: 5 });
 }
-
 // ---------- math problems ----------
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 function problem(level) {
@@ -103,15 +83,15 @@ function problem(level) {
 export function ring(a, snoozed = false) {
   if (ringing) return;
   const stop = playLoop(a.sound);
-  desktopNotify(a.label || '알람', `${a.time} 알람이에요`);
+  desktopNotify(a.label || '알람', '일어날 시간이에요');
   const clock = h('div', { class: 'ring-clock num' });
   const tick = () => { const d = new Date(); clock.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   tick(); const t = setInterval(tick, 1000);
   const area = h('div', { class: 'ring-area' });
   let solved = 0;
   const close = () => { clearInterval(t); stop(); wrap.classList.add('out'); setTimeout(() => wrap.remove(), 300); ringing = null; };
-  const dismiss = () => { close(); toast(snoozed ? '알람을 껐어요.' : '좋은 하루 보내세요!', { icon: 'check' }); };
-  const snooze = () => { snoozes[a.id] = Date.now() + (a.snooze || 5) * 60e3; close(); toast(`${a.snooze || 5}분 뒤에 다시 울려요.`, { icon: 'bell' }); };
+  const dismiss = () => { close(); toast(snoozed ? '알람을 껐어요.' : '개운하게 다시 시작해 봐요!', { icon: 'check' }); };
+  const snooze = () => { snoozes[a.id] = { at: Date.now() + (a.snooze || 5) * 60e3, a }; close(); toast(`${a.snooze || 5}분 뒤에 다시 울려요.`, { icon: 'bell' }); };
   function paintArea() {
     if (!a.math) {
       area.replaceChildren(h('button', { class: 'btn btn-ink btn-lg ring-off', onclick: dismiss }, '알람 끄기'));

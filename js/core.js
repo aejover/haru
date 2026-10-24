@@ -99,6 +99,9 @@ const P = {
   diary: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15.5H6.5A1.5 1.5 0 0 0 5 20z"/><path d="M5 20a1.5 1.5 0 0 0 1.5 1.5H19M9 7.5h6"/>',
   diet: '<path d="M4 11.5h16a8 8 0 0 1-16 0zM8.5 3.5c0 2 1.5 2 1.5 4M13 3.5c0 2 1.5 2 1.5 4"/>',
   chart: '<path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/>',
+  wallet: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M20.5 12h-4a1.8 1.8 0 0 0 0 3.6h4"/>',
+  routine: '<path d="M18.5 8.5A7.5 7.5 0 1 0 19.5 12"/><path d="M19.5 4.5v4h-4M9 12.2l2 2 4-4.2"/>',
+  wind: '<path d="M3.5 9.5h11a2.8 2.8 0 1 0-2.8-2.8M3.5 14.5h14a2.8 2.8 0 1 1-2.8 2.8M3.5 12h8"/>',
   user: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5"/>',
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -387,6 +390,7 @@ export function addTask(o) {
   if (o.time) t.time = o.time;
   if (o.days?.length) t.days = o.days;
   if (o.note) t.note = o.note;
+  if (o.goalId) t.goalId = o.goalId;
   store.s.tasks.push(t);
   gainXP('checklist');
   commit('tasks');
@@ -419,8 +423,9 @@ export const nagCount = days => (days >= 3 ? 10 : days === 2 ? 5 : days === 1 ? 
 const XP_RULES = {
   task: [10, 30], checklist: [3, 10], memo: [5, 10], record: [8, 5], pomodoro: [15, 16], diary: [20, 2], diet: [5, 12],
   doc: [10, 8], calendar: [3, 15], ai: [2, 20], youtube: [2, 3], profile: [5, 3], weather: [1, 1], goal: [10, 12], sleep: [8, 2],
+  routine: [15, 3], nap: [5, 2], money: [3, 15],
 };
-export const FEATURE_NAMES = { goal: '목표', sleep: '수면 기록', task: '할 일 완료', checklist: '체크리스트', memo: '메모', record: '녹음', pomodoro: '뽀모도로', diary: '일기', diet: '식단', doc: '문서', calendar: '캘린더', ai: 'Claude', youtube: '유튜브', profile: '프로필' };
+export const FEATURE_NAMES = { goal: '목표', sleep: '수면 기록', routine: '루틴', nap: '파워냅', money: '가계부', task: '할 일 완료', checklist: '체크리스트', memo: '메모', record: '녹음', pomodoro: '뽀모도로', diary: '일기', diet: '식단', doc: '문서', calendar: '캘린더', ai: 'Claude', youtube: '유튜브', profile: '프로필' };
 export function levelInfo(total) {
   let lv = 1;
   while (50 * lv * (lv + 1) <= total) lv++;

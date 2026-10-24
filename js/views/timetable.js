@@ -1,24 +1,11 @@
-// timetable.js — 시간표: 하루 24시간 주간 시간표, 색깔 블록(일정), 학점 계산기.
+// timetable.js — 시간표: 하루 24시간 주간 시간표, 색깔 블록(일정).
 import { h, icon, store, commit, uid, modal, toast, seg, confirmDialog, promptDialog, gainXP, pad } from '../core.js';
 
 export const COLORS = ['#E07A6B', '#D9A441', '#9DC25A', '#5FB3A3', '#5B8FD6', '#9A7BD1', '#E57FA8', '#E8935A', '#4FB0D9', '#7D8590'];
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
-const GRADES = [['', '성적 미정'], ['A+', 'A+'], ['A0', 'A0'], ['B+', 'B+'], ['B0', 'B0'], ['C+', 'C+'], ['C0', 'C0'], ['D+', 'D+'], ['D0', 'D0'], ['F', 'F'], ['P', 'P (패스)']];
-const GP = { 'A+': 4.5, A0: 4, 'B+': 3.5, B0: 3, 'C+': 2.5, C0: 2, 'D+': 1.5, D0: 1, F: 0 };
 const HOUR = 60; // px per hour
 const toMin = t => { const [a, b] = String(t || '0:0').split(':').map(Number); return a * 60 + (b || 0); };
 const toTime = m => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-// one entry per course name; its credit comes from whichever of its blocks has one
-function courseList(blocks) {
-  const map = new Map();
-  for (const b of blocks) {
-    const c = map.get(b.title);
-    if (!c) map.set(b.title, { title: b.title, color: b.color, credit: b.credit ?? null });
-    else if (c.credit == null && b.credit != null) c.credit = b.credit;
-  }
-  return [...map.values()];
-}
-
 function semesterName(d = new Date()) { const m = d.getMonth() + 1; return m >= 3 && m <= 8 ? `${d.getFullYear()}년 1학기` : `${m <= 2 ? d.getFullYear() - 1 : d.getFullYear()}년 2학기`; }
 function data() {
   const s = store.s;
@@ -55,18 +42,17 @@ function editBlock(t, block, onDone) {
   const place = h('input', { class: 'input', value: v.place || '', placeholder: '장소 (예: N17-227)' });
   const start = h('input', { class: 'input', type: 'time', step: 300, value: v.start });
   const end = h('input', { class: 'input', type: 'time', step: 300, value: v.end });
-  const credit = h('input', { class: 'input', type: 'number', min: 0, max: 9, step: 0.5, value: v.credit ?? '', placeholder: '예: 3' });
   const swatches = h('div', { class: 'tt-swatches' });
   const paintSw = () => swatches.replaceChildren(COLORS.map(c => h('button', { type: 'button', class: 'swatch' + (v.color === c ? ' on' : ''), style: { background: c }, 'aria-label': '색 ' + c, onclick: () => { v.color = c; paintSw(); } })));
   paintSw();
-  // reuse a course's color when its name is typed again
-  title.addEventListener('change', () => { const same = t.blocks.find(b => b.title === title.value.trim() && b !== block); if (same && isNew) { v.color = same.color; place.value ||= same.place || ''; credit.value ||= same.credit ?? ''; paintSw(); } });
+  // reuse a schedule's color when its name is typed again
+  title.addEventListener('change', () => { const same = t.blocks.find(b => b.title === title.value.trim() && b !== block); if (same && isNew) { v.color = same.color; place.value ||= same.place || ''; paintSw(); } });
   const daySeg = seg(DAYS.slice(0, Math.max(5, t.days)).map((d, i) => [String(i), d]), String(v.day), d => { v.day = Number(d); });
   const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
   modal({
     title: isNew ? '일정 추가' : '일정 수정',
     body: h('div', { class: 'col' }, titles, field('일정 이름', title), field('장소', place), h('div', { class: 'field' }, h('span', null, '요일'), daySeg),
-      h('div', { class: 'grid-2' }, field('시작', start), field('끝', end)), h('div', { class: 'field' }, h('span', null, '색깔'), swatches), field('학점', credit)),
+      h('div', { class: 'grid-2' }, field('시작', start), field('끝', end)), h('div', { class: 'field' }, h('span', null, '색깔'), swatches)),
     actions: [
       isNew ? null : { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${block.title}" 일정을 지울까요?`, { ok: '삭제', danger: true }))) return false; t.blocks = t.blocks.filter(b => b !== block); commit('timetable'); onDone(); } },
       { label: '취소' },
@@ -74,9 +60,7 @@ function editBlock(t, block, onDone) {
         const name = title.value.trim();
         if (!name) { toast('일정 이름을 입력하세요.'); title.focus(); return false; }
         if (toMin(end.value) <= toMin(start.value)) { toast('끝나는 시간이 시작보다 늦어야 해요.'); return false; }
-        const known = t.blocks.find(b => b.title === name && b !== block && b.credit != null)?.credit ?? null;
-        Object.assign(block, { title: name, place: place.value.trim(), day: v.day, start: start.value, end: end.value, color: v.color, credit: credit.value === '' ? known : Number(credit.value) });
-        if (block.credit != null) t.blocks.filter(b => b.title === name).forEach(b => { b.credit = block.credit; });
+        Object.assign(block, { title: name, place: place.value.trim(), day: v.day, start: start.value, end: end.value, color: v.color });
         if (isNew) { t.blocks.push(block); gainXP('calendar'); }
         commit('timetable'); onDone();
       } },
@@ -91,8 +75,7 @@ export default {
     el.classList.add('stagger', 'narrow');
     const head = h('div', { class: 'tt-head' });
     const gridBox = h('section', { class: 'tt-wrap' });
-    const calc = h('section', { class: 'glass card col' });
-    el.append(head, gridBox, calc);
+    el.append(head, gridBox);
 
     function paintHead() {
       const d = data(), t = current();
@@ -117,19 +100,18 @@ export default {
       const name = h('input', { class: 'input', value: t.name });
       const from = h('input', { class: 'input', type: 'number', min: 0, max: 22, value: t.from });
       const to = h('input', { class: 'input', type: 'number', min: 1, max: 24, value: t.to });
-      const target = h('input', { class: 'input', type: 'number', min: 1, max: 300, value: t.target || 150 });
       let days = t.days;
       const field = (label, x) => h('label', { class: 'field' }, h('span', null, label), x);
       modal({
         title: '시간표 설정',
         body: h('div', { class: 'col' }, field('이름', name), h('div', { class: 'field' }, h('span', null, '요일'), seg([['5', '월–금'], ['6', '월–토'], ['7', '월–일']], String(days), v => { days = Number(v); })),
-          h('div', { class: 'grid-2' }, field('시작 시각 (시)', from), field('끝 시각 (시)', to)), field('졸업 학점 (학점계산기)', target)),
+          h('div', { class: 'grid-2' }, field('시작 시각 (시)', from), field('끝 시각 (시)', to))),
         actions: [
           d.list.length > 1 ? { label: '이 시간표 삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${t.name}" 시간표를 지울까요?`, { ok: '삭제', danger: true }))) return false; d.list = d.list.filter(x => x !== t); d.cur = d.list[0].id; commit('timetable'); paint(); } } : null,
           { label: '취소' },
           { label: '저장', primary: true, onClick: () => {
             const f = Math.max(0, Math.min(22, Number(from.value) || 9)), e = Math.max(f + 1, Math.min(24, Number(to.value) || 18));
-            Object.assign(t, { name: name.value.trim() || t.name, days, from: f, to: e, target: Math.max(1, Number(target.value) || 150) });
+            Object.assign(t, { name: name.value.trim() || t.name, days, from: f, to: e });
             commit('timetable'); paint();
           } },
         ].filter(Boolean),
@@ -186,31 +168,7 @@ export default {
     }
     let scroller = null;
 
-    function paintCalc() {
-      const t = current();
-      const courses = courseList(t.blocks);
-      t.grades ||= {};
-      let sum = 0, graded = 0, earned = 0;
-      courses.forEach(c => {
-        const cr = Number(c.credit) || 0, g = t.grades[c.title] || '';
-        if (g && g !== 'F') earned += cr;
-        if (g in GP) { sum += GP[g] * cr; graded += cr; }
-      });
-      const avg = graded ? sum / graded : 0;
-      const otherEarned = data().list.filter(x => x !== t).reduce((acc, x) => acc + courseList(x.blocks).reduce((a, c) => a + ((x.grades?.[c.title] && x.grades[c.title] !== 'F') ? Number(c.credit) || 0 : 0), 0), 0);
-      calc.replaceChildren(
-        h('div', { class: 'row between' }, h('h2', { class: 'h2' }, '학점계산기'), h('span', { class: 'small muted' }, `${t.name} · ${courses.reduce((a, c) => a + (Number(c.credit) || 0), 0)}학점 수강`)),
-        h('div', { class: 'tt-gpa' },
-          h('div', null, h('span', { class: 'muted' }, '평균 학점 '), h('b', { class: 'num' }, graded ? avg.toFixed(2) : '-'), h('span', { class: 'muted' }, ' / 4.5')),
-          h('div', null, h('span', { class: 'muted' }, '취득 학점 '), h('b', { class: 'num' }, earned + otherEarned), h('span', { class: 'muted' }, ` / ${t.target || 150}`))),
-        courses.length ? h('div', null, courses.map(c => h('div', { class: 'tt-course' },
-          h('i', { class: 'dot', style: { background: c.color } }), h('span', { class: 'grow ell' }, c.title),
-          h('span', { class: 'small muted num' }, c.credit != null ? `${c.credit}학점` : '학점 미정'),
-          h('select', { class: 'tb-select', 'aria-label': `${c.title} 성적`, onchange: e => { t.grades[c.title] = e.target.value; commit('timetable'); paintCalc(); } }, GRADES.map(([v, l]) => h('option', { value: v, selected: (t.grades[c.title] || '') === v }, l))))))
-          : h('p', { class: 'small muted', style: { margin: 0 } }, '수업 일정에 학점을 넣으면, 성적을 골라 평균 학점을 계산할 수 있어요.'));
-    }
-
-    function paint() { paintHead(); paintGrid(); paintCalc(); }
+    function paint() { paintHead(); paintGrid(); }
     paint();
     ctx.every(60e3, paintGrid);
     ctx.on('remote', paint);
