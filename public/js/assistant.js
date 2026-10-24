@@ -6,7 +6,7 @@ import {
 import { start as pomoStart, pause as pomoPause, reset as pomoReset, setMode } from './pomodoro.js';
 import { play as ytPlay, parseYT } from './youtube.js';
 
-const TABS = ['home', 'memo', 'calendar', 'timetable', 'alarm', 'pomodoro', 'youtube', 'docs', 'checklist', 'diary', 'diet', 'growth', 'profile', 'settings'];
+const TABS = ['home', 'goals', 'memo', 'calendar', 'timetable', 'alarm', 'pomodoro', 'youtube', 'docs', 'checklist', 'diary', 'diet', 'growth', 'profile', 'settings'];
 const DATE = { type: 'string', description: 'YYYY-MM-DD 형식 날짜' };
 const TOOLS = [
   { name: 'add_task', description: '할 일 또는 매일 하는 루틴을 추가한다. kind=once는 특정 날짜에 한 번, daily는 매일(또는 days 요일마다) 반복. mode=nag는 안 하면 계속 알림을 보내는 독촉 모드.', input_schema: { type: 'object', properties: { title: { type: 'string' }, kind: { type: 'string', enum: ['once', 'daily'] }, date: DATE, time: { type: 'string', description: 'HH:MM' }, mode: { type: 'string', enum: ['normal', 'nag'] }, days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: '반복 요일 (0=일요일 … 6=토요일). 비우면 매일' } }, required: ['title', 'kind'] } },

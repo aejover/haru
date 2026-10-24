@@ -1,7 +1,8 @@
 ﻿// diet.js — 식단: 신체 정보 → BMR/TDEE/목표 칼로리·영양소, 나만의 음식·레시피, 끼니 기록, 식습관 피드백.
 import {
-  h, icon, store, commit, uid, dkey, addDays, fmtDay, toast, modal, gainXP, ai, jsonOf, textOf, aiFail, obj, pickFiles, fileToBlock,
+  h, icon, store, commit, uid, dkey, addDays, fmtDay, toast, modal, seg, gainXP, ai, jsonOf, textOf, aiFail, obj, pickFiles, fileToBlock,
 } from '../core.js';
+import { renderSleep } from './sleep.js';
 
 const MEALS = [['breakfast', '아침'], ['lunch', '점심'], ['dinner', '저녁'], ['snack', '간식']];
 const ACTIVITY = [[1.2, '거의 안 움직임 (사무직)'], [1.375, '가벼운 활동 (주 1~3회 운동)'], [1.55, '보통 활동 (주 3~5회 운동)'], [1.725, '많은 활동 (주 6~7회 운동)'], [1.9, '매우 많은 활동 (육체 노동·선수)']];
@@ -23,14 +24,21 @@ const sum = list => list.reduce((a, x) => ({ kcal: a.kcal + x.kcal, carb: a.carb
 const NUTRI = obj({ name: { type: 'string' }, serving: { type: 'string' }, kcal: { type: 'number' }, carb: { type: 'number' }, protein: { type: 'number' }, fat: { type: 'number' }, note: { type: 'string' } });
 
 export default {
-  id: 'diet', title: '식단', icon: 'diet',
-  render(el, ctx) {
+  id: 'diet', title: '건강', icon: 'diet',
+  render(el, ctx, arg) {
     el.classList.add('stagger');
     const D = store.s.diet;
     let day = dkey();
     const left = h('div', { class: 'col', style: { gap: '16px', minWidth: 0 } });
     const right = h('div', { class: 'col', style: { gap: '16px' } });
-    el.append(h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '식단')), h('div', { class: 'diet-layout' }, left, right));
+    // 건강 = 수면·에너지 + 식단 (remembers the last section)
+    const sleepBox = h('div', { class: 'col', style: { gap: '16px' } });
+    const dietBox = h('div', { class: 'diet-layout' }, left, right);
+    let section = arg === 'diet' || arg === 'sleep' ? arg : (() => { try { return localStorage.getItem('haru.health') || 'sleep'; } catch { return 'sleep'; } })();
+    const show = v => { section = v; try { localStorage.setItem('haru.health', v); } catch { /* ignore */ } sleepBox.hidden = v !== 'sleep'; dietBox.hidden = v !== 'diet'; };
+    el.append(h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '건강'), seg([['sleep', '수면 · 에너지'], ['diet', '식단']], section, show)), sleepBox, dietBox);
+    renderSleep(sleepBox, ctx);
+    show(section);
 
     function ring(value, goal) {
       const R = 64, C = 2 * Math.PI * R, f = goal ? Math.min(1, value / goal) : 0;

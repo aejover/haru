@@ -418,9 +418,9 @@ export const nagCount = days => (days >= 3 ? 10 : days === 2 ? 5 : days === 1 ? 
 // ---------- XP / level ----------
 const XP_RULES = {
   task: [10, 30], checklist: [3, 10], memo: [5, 10], record: [8, 5], pomodoro: [15, 16], diary: [20, 2], diet: [5, 12],
-  doc: [10, 8], calendar: [3, 15], ai: [2, 20], youtube: [2, 3], profile: [5, 3], weather: [1, 1],
+  doc: [10, 8], calendar: [3, 15], ai: [2, 20], youtube: [2, 3], profile: [5, 3], weather: [1, 1], goal: [10, 12], sleep: [8, 2],
 };
-export const FEATURE_NAMES = { task: '할 일 완료', checklist: '체크리스트', memo: '메모', record: '녹음', pomodoro: '뽀모도로', diary: '일기', diet: '식단', doc: '문서', calendar: '캘린더', ai: 'Claude', youtube: '유튜브', profile: '프로필' };
+export const FEATURE_NAMES = { goal: '목표', sleep: '수면 기록', task: '할 일 완료', checklist: '체크리스트', memo: '메모', record: '녹음', pomodoro: '뽀모도로', diary: '일기', diet: '식단', doc: '문서', calendar: '캘린더', ai: 'Claude', youtube: '유튜브', profile: '프로필' };
 export function levelInfo(total) {
   let lv = 1;
   while (50 * lv * (lv + 1) <= total) lv++;
