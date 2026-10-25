@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>개인정보처리방침 · 하루</title>
+<meta name="description" content="하루가 어떤 정보를 어디에 저장하고, 어떤 외부 서비스에 무엇을 보내는지, 광고와 쿠키를 어떻게 쓰는지 설명해요.">
+<link rel="canonical" href="https://aejover.github.io/haru/privacy.html">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="하루">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="개인정보처리방침">
+<meta property="og:description" content="하루가 어떤 정보를 어디에 저장하고, 어떤 외부 서비스에 무엇을 보내는지, 광고와 쿠키를 어떻게 쓰는지 설명해요.">
+<meta property="og:url" content="https://aejover.github.io/haru/privacy.html">
+<meta property="og:image" content="https://aejover.github.io/haru/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F4F4F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D0D0F" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="site.css">
+
+</head>
+<body>
+<a class="skip" href="#main">본문 바로가기</a>
+<header class="site-head">
+  <a class="brand" href="about.html"><img src="icons/icon-192.png" alt="" width="28" height="28">하루</a>
+  <nav aria-label="사이트"><a href="guide/">사용 가이드</a><a href="about.html">소개</a><a class="open-app" href="./">앱 열기</a></nav>
+</header>
+<main id="main" class="site-main">
+<article class="prose">
+<h1>개인정보처리방침</h1>
+<p class="meta">2026년 10월 25일 기준</p>
+<p>하루(이하 “서비스”)는 이용자의 개인정보를 소중히 다루며, 「개인정보 보호법」 등 관련 법령을 지키려고 노력합니다. 이 방침은 서비스가 어떤 정보를 어디에 저장하고, 어떤 경우에 외부로 보내는지 설명합니다.</p>
+
+<h2>1. 운영자가 수집하는 개인정보</h2>
+<p>서비스에는 회원가입과 로그인이 없으며, <strong>운영자는 이용자의 이름, 연락처, 기록 내용 등 개인정보를 수집하거나 서버에 저장하지 않습니다.</strong></p>
+<p>이용자가 서비스에 입력한 할 일, 메모, 일기, 가계부, 수면 기록, 사진, 녹음 등은 모두 이용자 기기의 브라우저 저장소(IndexedDB, localStorage)에만 저장됩니다. 이 정보는 이용자가 직접 삭제하거나(설정 → 데이터 → 모두 지우기), 브라우저의 사이트 데이터를 지우면 삭제됩니다. 백업 파일도 이용자 기기에만 만들어집니다.</p>
+<p>이용자가 컴퓨터에 하루를 설치해 직접 서버로 쓰는 경우, 기록은 그 컴퓨터(이용자 본인의 기기)에 저장되며 운영자에게 전달되지 않습니다.</p>
+
+<h2>2. 이용자가 켠 기능에 따라 외부로 보내지는 정보</h2>
+<p>다음 기능은 이용자가 직접 설정하거나 사용할 때만 동작하며, 각 서비스로 필요한 정보가 직접 전송됩니다. 운영자는 이 정보를 받거나 볼 수 없습니다.</p>
+<table>
+  <thead><tr><th>기능</th><th>보내는 곳</th><th>보내는 정보</th></tr></thead>
+  <tbody>
+    <tr><td>Claude 기능</td><td>Anthropic (api.anthropic.com)</td><td>Claude에게 요청한 내용(예: 질문, 요약할 글, 일정표·영수증 사진)과 이용자가 입력한 API 키</td></tr>
+    <tr><td>날씨</td><td>Open-Meteo (open-meteo.com)</td><td>위치 권한을 허용한 경우 대략적인 위도·경도, 또는 이용자가 고른 도시 이름</td></tr>
+    <tr><td>Gmail · YouTube 연동</td><td>Google</td><td>이용자가 Google 로그인으로 허용한 범위의 요청(읽기 전용)</td></tr>
+    <tr><td>휴대폰 알림</td><td>ntfy (기본: ntfy.sh)</td><td>이용자가 정한 주제 이름과 알림 문구(할 일 제목, 일정 제목)</td></tr>
+    <tr><td>유튜브 · 라디오 재생</td><td>YouTube, 라디오 방송사</td><td>재생하려는 영상·방송 주소</td></tr>
+  </tbody>
+</table>
+<p>각 서비스의 정보 처리는 해당 회사의 개인정보처리방침을 따릅니다. Claude API 키는 이용자 브라우저에만 저장되며, Claude를 부를 때 Anthropic으로만 전송됩니다.</p>
+
+<h2>3. 서비스 제공 과정에서 자동으로 남는 정보</h2>
+<p>서비스는 GitHub Pages에서 제공되며, 글꼴과 일부 도구는 jsDelivr, Google Fonts 같은 공용 전송망(CDN)에서 불러옵니다. 이 과정에서 각 회사가 일반적인 웹 서버처럼 접속 IP 주소, 브라우저 종류, 접속 시각 등을 기록할 수 있습니다. 운영자는 이 기록에 접근하지 않습니다.</p>
+
+<h2>4. 광고와 쿠키</h2>
+<p>서비스는 운영 비용을 마련하기 위해 Google AdSense 등 제3자 광고를 게재할 수 있습니다. 광고가 게재되는 경우:</p>
+<ul>
+  <li>Google을 포함한 제3자 광고 사업자는 쿠키를 사용하여 이용자가 이 사이트나 다른 사이트를 방문한 기록을 바탕으로 광고를 게재할 수 있습니다.</li>
+  <li>Google은 광고 쿠키를 사용하여 이용자의 이 사이트 및 다른 사이트 방문 기록을 바탕으로 이용자와 파트너에게 광고를 게재할 수 있습니다.</li>
+  <li>이용자는 <a href="https://adssettings.google.com/" rel="nofollow">Google 광고 설정</a>에서 맞춤 광고를 끌 수 있으며, <a href="https://www.aboutads.info/choices/" rel="nofollow">www.aboutads.info</a>에서 다른 제3자 사업자의 맞춤 광고 쿠키 사용을 거부할 수 있습니다.</li>
+  <li>Google이 광고 사업자로서 데이터를 사용하는 방식은 <a href="https://policies.google.com/technologies/partner-sites" rel="nofollow">Google 파트너 사이트 데이터 사용 정책</a>에서 확인할 수 있습니다.</li>
+  <li>유럽 경제 지역(EEA), 영국, 스위스 이용자에게는 광고 쿠키를 쓰기 전에 동의를 구합니다.</li>
+</ul>
+<p>서비스 자체는 이용자를 추적하기 위한 쿠키를 쓰지 않습니다. 브라우저 저장소는 이용자의 기록과 화면 설정(테마 등)을 저장하는 데만 씁니다.</p>
+
+<h2>5. 아동의 개인정보</h2>
+<p>서비스는 만 14세 미만 아동의 개인정보를 따로 수집하지 않습니다. 기록은 이용자 기기에만 저장되므로, 보호자는 기기의 브라우저 데이터를 지워 언제든 삭제할 수 있습니다.</p>
+
+<h2>6. 이용자의 권리</h2>
+<p>이용자는 언제든 서비스에 저장된 자신의 기록을 확인·수정·삭제하고, 백업 파일로 내보낼 수 있습니다. 운영자는 이용자의 기록을 보관하지 않으므로, 운영자에게 열람이나 삭제를 요청할 정보가 없습니다.</p>
+
+<h2>7. 방침의 변경</h2>
+<p>이 방침을 바꾸는 경우 이 페이지에 변경 내용과 시행일을 게시합니다.</p>
+
+<h2>8. 문의</h2>
+<p>개인정보와 관련한 문의는 <a href="contact.html">문의 페이지</a>의 방법으로 보내 주세요.</p>
+<p class="note">시행일: 2026년 10월 25일</p>
+
+</article>
+</main>
+<footer class="site-foot">
+  <nav aria-label="정책">
+    <a href="about.html">소개</a><a href="guide/">사용 가이드</a><a href="privacy.html">개인정보처리방침</a><a href="terms.html">이용약관</a><a href="contact.html">문의</a>
+  </nav>
+  <p>© 2026 하루 · 만든 사람 <a href="https://github.com/aejover">aejover</a></p>
+</footer>
+</body>
+</html>

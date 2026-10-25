@@ -58,7 +58,7 @@ export default {
         h('div', null, h('b', null, '10회'), h('span', null, '3일째부터 매일'))),
       h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } },
         `알림은 ${s.settings.nagStart}시부터 ${s.settings.nagEnd}시 사이에 일정한 간격으로 가요. `,
-        s.settings.ntfyTopic ? '휴대폰 알림이 연결되어 있어요.' : '지금은 이 컴퓨터에만 알림이 떠요. 휴대폰 알림은 설정에서 연결할 수 있어요.',
+        s.settings.ntfyTopic ? '휴대폰 알림이 연결되어 있어요.' : '지금은 이 기기에만 알림이 떠요. 휴대폰 알림은 설정에서 연결할 수 있어요.',
         ' 일반 할 일은 알림이 가지 않아요.'));
 
     function paint() {

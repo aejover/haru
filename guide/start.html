@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>하루 시작하기: 설치, 저장, 백업까지 · 하루</title>
+<meta name="description" content="하루를 휴대폰과 PC에 앱처럼 설치하는 법, 기록이 어디에 저장되는지, 기기를 바꿀 때 백업으로 옮기는 법, Claude API 키를 넣는 법을 정리했어요.">
+<link rel="canonical" href="https://aejover.github.io/haru/guide/start.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="하루">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="하루 시작하기: 설치, 저장, 백업까지">
+<meta property="og:description" content="하루를 휴대폰과 PC에 앱처럼 설치하는 법, 기록이 어디에 저장되는지, 기기를 바꿀 때 백업으로 옮기는 법, Claude API 키를 넣는 법을 정리했어요.">
+<meta property="og:url" content="https://aejover.github.io/haru/guide/start.html">
+<meta property="og:image" content="https://aejover.github.io/haru/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F4F4F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D0D0F" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="../site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"하루 시작하기: 설치, 저장, 백업까지","description":"하루를 휴대폰과 PC에 앱처럼 설치하는 법, 기록이 어디에 저장되는지, 기기를 바꿀 때 백업으로 옮기는 법, Claude API 키를 넣는 법을 정리했어요.","inLanguage":"ko","datePublished":"2026-10-25","dateModified":"2026-10-25","author":{"@type":"Person","name":"aejover","url":"https://github.com/aejover"},"publisher":{"@type":"Organization","name":"하루","logo":{"@type":"ImageObject","url":"https://aejover.github.io/haru/icons/icon-512.png"}},"image":"https://aejover.github.io/haru/og-image.png","mainEntityOfPage":"https://aejover.github.io/haru/guide/start.html"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"하루","item":"https://aejover.github.io/haru/"},{"@type":"ListItem","position":2,"name":"사용 가이드","item":"https://aejover.github.io/haru/guide/"},{"@type":"ListItem","position":3,"name":"하루 시작하기: 설치, 저장, 백업까지","item":"https://aejover.github.io/haru/guide/start.html"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">본문 바로가기</a>
+<header class="site-head">
+  <a class="brand" href="../about.html"><img src="../icons/icon-192.png" alt="" width="28" height="28">하루</a>
+  <nav aria-label="사이트"><a href="../guide/" aria-current="page">사용 가이드</a><a href="../about.html">소개</a><a class="open-app" href="../">앱 열기</a></nav>
+</header>
+<main id="main" class="site-main">
+<article class="prose">
+<nav class="crumbs" aria-label="위치"><a href="./">사용 가이드</a></nav>
+<h1>하루 시작하기: 설치, 저장, 백업까지</h1>
+<p class="meta">2026년 10월 25일 업데이트 · aejover</p>
+<p class="lead">하루는 가입도, 설치 파일도 없어요. 주소를 열면 바로 쓸 수 있고, 원하면 홈 화면에 앱처럼 설치할 수 있어요. 처음 쓰는 분이 알아 두면 좋은 네 가지를 정리했어요.</p>
+
+<h2>1. 열자마자 쓰기</h2>
+<p>하루를 처음 열면 홈 화면에 오늘 날짜와 시계, 날씨, 오늘 할 일이 보여요. 예시 할 일이 몇 개 들어 있는데, 눌러서 고치거나 오른쪽 ×로 지우면 돼요. 왼쪽 위 메뉴(≡)를 누르면 할 일, 목표, 루틴, 캘린더, 가계부 같은 탭으로 이동할 수 있어요.</p>
+<p>무엇부터 할지 모르겠다면 이 순서를 추천해요.</p>
+<ol>
+  <li><strong>할 일</strong> 탭에서 매일 하는 일(약 먹기, 운동) 두세 개를 “매일 반복”으로 넣어요.</li>
+  <li><strong>건강</strong> 탭에서 어젯밤 잔 시간을 기록해요. 나이에 맞는 적정 수면 시간과 오늘의 에너지 곡선이 나와요.</li>
+  <li><strong>루틴</strong> 탭 → 설정에서 추천 루틴 하나를 넣고 “시작하기”를 눌러 봐요.</li>
+</ol>
+
+<h2>2. 앱처럼 설치하기</h2>
+<p>하루는 PWA(Progressive Web App)라서, 앱 스토어를 거치지 않고 홈 화면에 설치할 수 있어요. 설치하면 주소창 없이 앱처럼 열리고, 인터넷이 끊겨도 열려요.</p>
+<table>
+  <thead><tr><th>기기</th><th>설치 방법</th></tr></thead>
+  <tbody>
+    <tr><td>아이폰·아이패드</td><td>Safari로 연 뒤 아래쪽 공유 버튼(네모에 화살표) → “홈 화면에 추가” → “추가”</td></tr>
+    <tr><td>안드로이드</td><td>Chrome 오른쪽 위 ⋮ → “앱 설치” 또는 “홈 화면에 추가” (삼성 인터넷은 아래 ≡ 메뉴)</td></tr>
+    <tr><td>Windows·Mac</td><td>Chrome이나 Edge 주소창 오른쪽의 설치 아이콘 → “설치”</td></tr>
+  </tbody>
+</table>
+
+<h2>3. 기록은 어디에 저장될까</h2>
+<p>하루의 기록은 운영자의 서버가 아니라 <strong>지금 쓰는 기기의 브라우저 안</strong>에 저장돼요. 정확히는 브라우저가 사이트마다 따로 주는 저장 공간(IndexedDB)이에요. 덕분에 가입이 필요 없고, 내 일기나 가계부가 다른 곳으로 나가지 않아요.</p>
+<p>대신 알아 둘 점이 있어요.</p>
+<ul>
+  <li>휴대폰과 PC의 기록은 <strong>따로따로</strong>예요. 한쪽에서 적은 할 일이 다른 쪽에 자동으로 나타나지 않아요.</li>
+  <li>시크릿(사생활 보호) 창에서는 창을 닫으면 기록이 사라져요.</li>
+  <li>브라우저 설정에서 “사이트 데이터 삭제”를 하면 하루의 기록도 함께 지워져요.</li>
+</ul>
+
+<h2>4. 백업하고 다른 기기로 옮기기</h2>
+<p><strong>설정 → 데이터 → 백업 내보내기</strong>를 누르면 모든 기록이 담긴 파일(haru-backup-날짜.json)이 만들어져요. 메모에 넣은 사진과 녹음도 함께 들어가요. 이 파일을 다른 기기로 보낸 뒤, 그 기기의 하루에서 <strong>백업 불러오기</strong>를 누르면 그대로 옮겨져요.</p>
+<blockquote><p>한 달에 한 번, 혹은 중요한 기록을 많이 남긴 날에는 백업 파일을 만들어 클라우드 드라이브에 올려 두면 안심이에요.</p></blockquote>
+
+<h2>5. Claude 기능 켜기 (선택)</h2>
+<p>일정표 사진 읽기, 녹음 요약, 영수증 읽기, 목표 나누기 같은 기능은 Anthropic의 AI인 Claude가 해요. 쓰려면 <a href="https://console.anthropic.com/settings/keys" rel="nofollow">Anthropic 콘솔</a>에서 API 키를 만들어 <strong>설정 → Claude</strong>에 넣고 “연결 테스트”를 눌러 확인하면 돼요.</p>
+<ul>
+  <li>키는 내 브라우저에만 저장되고, Claude를 부를 때 Anthropic으로만 보내져요.</li>
+  <li>사용한 만큼 요금이 키 주인에게 청구돼요. 짧은 요청은 대개 몇 원 수준이지만, 사진을 많이 읽히면 늘어나요.</li>
+  <li>여러 사람이 쓰는 컴퓨터라면 다 쓴 뒤 “키 삭제”를 눌러 주세요.</li>
+</ul>
+<p>Claude 키가 없어도 Claude를 쓰는 기능만 빠질 뿐, 나머지는 모두 그대로 쓸 수 있어요.</p>
+
+<aside class="try"><p>지금 열어서 첫 할 일을 적어 보세요. 가입 없이 바로 시작돼요.</p><a class="btn" href="../">하루에서 해 보기</a></aside>
+<nav class="pager" aria-label="다른 가이드"><span></span><a class="next" href="sleep-debt.html"><small>다음</small>수면 부채 계산법과 갚는 법: 나에게 맞는 수면 시간 찾기</a></nav>
+</article>
+</main>
+<footer class="site-foot">
+  <nav aria-label="정책">
+    <a href="../about.html">소개</a><a href="../guide/">사용 가이드</a><a href="../privacy.html">개인정보처리방침</a><a href="../terms.html">이용약관</a><a href="../contact.html">문의</a>
+  </nav>
+  <p>© 2026 하루 · 만든 사람 <a href="https://github.com/aejover">aejover</a></p>
+</footer>
+</body>
+</html>
