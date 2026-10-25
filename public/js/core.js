@@ -1,13 +1,43 @@
 // core.js — shared state, DOM helpers, dates, icons, notifications, Claude bridge, XP / tier engine.
+import * as local from './local.js';
+import { runClaudeLocal } from './claude-local.js';
 
-// ---------- where the computer's server is ----------
-// Served by the 하루 server itself → same origin. Opened from GitHub Pages → talk to the computer's
-// Tailscale address (given once as ?server=… or typed on the connect screen, then remembered).
+// ---------- where the records live ----------
+// Served by the 하루 server itself → same origin. Opened from the web (GitHub Pages or a custom domain):
+// either talk to a computer's Tailscale address (given once as ?server=… or in 설정, then remembered),
+// or — the default — keep everything in this browser ("이 기기에서만").
 const qsServer = new URLSearchParams(location.search).get('server');
 if (qsServer) { try { localStorage.setItem('haru.server', qsServer.trim().replace(/\/+$/, '')); } catch { /* ignore */ } }
-export const REMOTE = location.hostname.endsWith('github.io') || !!qsServer;
+const ON_SERVER = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) || location.hostname.endsWith('.ts.net') || /^(\d{1,3}\.){3}\d{1,3}$/.test(location.hostname);
+export const REMOTE = !ON_SERVER || !!qsServer;
 export const API_BASE = REMOTE ? (() => { try { return localStorage.getItem('haru.server') || ''; } catch { return ''; } })() : '';
+export const LOCAL = REMOTE && !API_BASE;
 export const apiUrl = p => (API_BASE && /^\/(api|files)\//.test(p) ? API_BASE + p : p);
+if (LOCAL) {
+  // photos and recordings keep their "/files/…" addresses; here they come out of IndexedDB
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const m = typeof input === 'string' && /^\/files\/([^?#]+)/.exec(input);
+    if (!m) return nativeFetch(input, init);
+    const b = await local.fileBlob(decodeURIComponent(m[1]));
+    return b ? new Response(b, { headers: { 'Content-Type': b.type || 'application/octet-stream' } }) : new Response('', { status: 404 });
+  };
+  const fix = el => {
+    for (const a of ['src', 'href']) {
+      const v = el.getAttribute?.(a); if (!v || !/^\/files\//.test(v)) continue;
+      const id = decodeURIComponent(v.slice(7));
+      const hit = local.cachedFileURL(id);
+      if (hit) { el.setAttribute(a, hit); continue; }
+      local.fileURL(id).then(u => { if (u && el.getAttribute(a) === v) el.setAttribute(a, u); });
+    }
+  };
+  new MutationObserver(list => {
+    for (const m of list) {
+      if (m.type === 'attributes') fix(m.target);
+      else m.addedNodes.forEach(n => { if (n.nodeType === 1) { fix(n); n.querySelectorAll?.('[src^="/files/"],[href^="/files/"]').forEach(fix); } });
+    }
+  }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'href'] });
+}
 if (API_BASE) {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = (input, init) => nativeFetch(typeof input === 'string' ? apiUrl(input) : input, init);
@@ -230,11 +260,16 @@ export const store = {
   pendingRemote: false,
   async load() {
     let data = null;
-    try {
-      const r = await fetch('/api/state', { cache: 'no-store' });
-      if (r.ok) { data = await r.json(); this.serverOk = this.fromServer = true; this.rev = Number(r.headers.get('X-Haru-Rev')) || 0; }
-    } catch { /* server not running */ }
-    if (!this.fromServer) { try { data = JSON.parse(localStorage.getItem(LS_KEY)); } catch { data = null; } }
+    if (LOCAL) {
+      local.persist();
+      try { data = await local.kvGet('state'); } catch { data = null; }
+    } else {
+      try {
+        const r = await fetch('/api/state', { cache: 'no-store' });
+        if (r.ok) { data = await r.json(); this.serverOk = this.fromServer = true; this.rev = Number(r.headers.get('X-Haru-Rev')) || 0; }
+      } catch { /* server not running */ }
+    }
+    if (!this.fromServer && !data) { try { data = JSON.parse(localStorage.getItem(LS_KEY)); } catch { data = null; } }
     this.s = migrate(data || seed());
     if (!data) this.flush();
   },
@@ -283,6 +318,11 @@ export const store = {
     this._dirty = false;
     const body = JSON.stringify(this.s);
     try { localStorage.setItem(LS_KEY, body); } catch { /* quota or blocked */ }
+    if (LOCAL) {
+      // IndexedDB holds the real copy (no 5 MB limit); localStorage above is only a quick backup
+      try { await local.kvSet('state', JSON.parse(body)); this.savedAt = Date.now(); bus.emit('saved', true); } catch { bus.emit('saved', false); }
+      return;
+    }
     // A copy loaded from this browser (computer unreachable) never overwrites the computer's data.
     if (!this.fromServer) { bus.emit('saved', false); return; }
     try {
@@ -297,6 +337,7 @@ window.addEventListener('pagehide', () => {
   if (!store._dirty || !store.s) return;
   const body = JSON.stringify(store.s);
   try { localStorage.setItem(LS_KEY, body); } catch { /* quota */ }
+  if (LOCAL) local.kvSet('state', store.s).catch(() => {});
   if (store.fromServer) { try { navigator.sendBeacon(apiUrl('/api/state'), new Blob([body], { type: 'application/json' })); } catch { /* too large for a beacon */ } }
 });
 document.addEventListener('visibilitychange', () => {
@@ -661,6 +702,7 @@ export async function desktopNotify(title, body) {
 // ---------- files & network ----------
 export async function upload(blob, name) {
   const n = name || blob.name || 'file';
+  if (LOCAL) return local.putFile(blob, n);
   const r = await fetch('/api/upload?name=' + encodeURIComponent(n), { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob });
   if (!r.ok) throw new Error('파일을 저장하지 못했어요. 하루 서버가 켜져 있는지 확인하세요.');
   return r.json();
@@ -712,6 +754,12 @@ export async function urlToBlock(url) {
 
 // ---------- Claude ----------
 export async function ai(req) {
+  if (LOCAL) {
+    const data = await runClaudeLocal(req);
+    if (data.stop_reason === 'refusal') throw Object.assign(new Error('Claude가 이 요청에는 답하지 않았어요. 표현을 바꿔 다시 시도해 보세요.'), { code: 'refusal' });
+    gainXP('ai');
+    return data;
+  }
   let r;
   try {
     r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });

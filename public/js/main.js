@@ -1,8 +1,9 @@
 // main.js — app shell: router, top bar, menu drawer, profile popover, theme, background engines.
 import {
   $, h, icon, iconHTML, store, bus, commit, dkey, fmtDay, fmtDur, fmtClock, toast, modal, ripple, desktopNotify, chime,
-  levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE,
+  levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE, LOCAL,
 } from './core.js';
+import { startReminders } from './remind.js';
 import pomodoro, { tickPomo, resumePomo, remaining, durOf, MODES, focusToday, countdown, toggle as pomoToggle } from './pomodoro.js';
 import youtube, { initYouTubeHost, ytState, togglePlay } from './youtube.js';
 import { initAssistant } from './assistant.js';
@@ -59,6 +60,7 @@ export function toggleTheme(e) {
 
 // ---------- router ----------
 let current = null, ctx = null;
+const HOME_TITLE = document.title; // the descriptive title in index.html (search results show it)
 function makeCtx() {
   const offs = [];
   return {
@@ -101,7 +103,7 @@ function renderRoute() {
   try { v.render(page, ctx, arg); }
   catch (e) { console.error(e); page.append(h('div', { class: 'glass card' }, h('h2', { class: 'h2' }, '화면을 그리지 못했어요'), h('p', { class: 'muted' }, String(e.message || e)))); }
   $('#view-title').textContent = v.id === 'home' ? '' : v.title;
-  document.title = v.id === 'home' ? '하루' : `${v.title} · 하루`;
+  document.title = v.id === 'home' ? HOME_TITLE : `${v.title} · 하루`;
   paintDrawer();
   closeDrawer(); closePopover();
   bus.emit('route', v.id);
@@ -109,6 +111,8 @@ function renderRoute() {
 
 // ---------- drawer ----------
 const drawer = () => $('#drawer');
+// the site's own pages (guides, policies) — plain HTML next to the app
+const SITE_LINKS = [['about.html', '소개'], ['guide/', '사용 가이드'], ['privacy.html', '개인정보처리방침'], ['terms.html', '이용약관'], ['contact.html', '문의']];
 function paintDrawer() {
   const k = dkey();
   const left = tasksOn(k).filter(t => !isDone(t, k)).length;
@@ -123,7 +127,9 @@ function paintDrawer() {
     h('div', { class: 'drawer-foot' },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: e => toggleTheme(e) }, icon(isDark() ? 'sun' : 'moon', 16), isDark() ? '화이트 모드' : '블랙 모드'),
       h('span', { class: 'spacer' }),
-      h('span', { class: 'tiny muted', title: store.serverOk ? '서버에 저장됨' : '서버 연결 안 됨 · 이 브라우저에만 저장 중' }, store.serverOk ? '저장됨' : '오프라인')));
+      LOCAL ? h('span', { class: 'tiny muted', title: '기록은 이 브라우저에 저장돼요 · 설정 → 데이터에서 백업' }, '이 기기에 저장')
+        : h('span', { class: 'tiny muted', title: store.serverOk ? '서버에 저장됨' : '서버 연결 안 됨 · 이 브라우저에만 저장 중' }, store.serverOk ? '저장됨' : '오프라인')),
+    h('div', { class: 'drawer-links' }, SITE_LINKS.map(([href, label]) => h('a', { href }, label))));
 }
 function openDrawer() {
   paintDrawer();
@@ -226,36 +232,18 @@ function connectEvents() {
     const d = JSON.parse(e.data);
     if (d.from !== store.clientId && d.rev !== store.rev) store.pullRemote();
   });
-  es.addEventListener('notify', e => {
-    const d = JSON.parse(e.data);
-    if (d.kind === 'test') return toast(d.message, { title: d.title, icon: 'bell' });
-    if (d.kind === 'alarm') return; // an open window rings the alarm itself
-    if (d.kind === 'nag') chime('alarm');
-    toast(d.message, { title: d.title, icon: 'bell', duration: 9000, action: d.kind === 'nag' ? { label: '열기', onClick: () => go('checklist') } : null });
-    desktopNotify(d.title, d.message);
-  });
+  es.addEventListener('notify', e => showNotify(JSON.parse(e.data)));
+}
+function showNotify(d) {
+  if (d.kind === 'test') return toast(d.message, { title: d.title, icon: 'bell' });
+  if (d.kind === 'alarm') return; // an open window rings the alarm itself
+  if (d.kind === 'nag') chime('alarm');
+  toast(d.message, { title: d.title, icon: 'bell', duration: 9000, action: d.kind === 'nag' ? { label: '열기', onClick: () => go('checklist') } : null });
+  desktopNotify(d.title, d.message);
 }
 
 // ---------- phone app: offline screen & install ----------
 const onThisComputer = () => !REMOTE && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-// GitHub Pages: ask once for the computer's address (the QR in the computer's 설정 fills it in automatically)
-function connectScreen() {
-  const inp = h('input', { class: 'input', type: 'url', placeholder: 'https://내컴퓨터.tailxxxx.ts.net', value: API_BASE, 'aria-label': '컴퓨터 주소' });
-  const go = () => {
-    let v = inp.value.trim().replace(/\/+$/, '');
-    if (!v) { inp.focus(); return; }
-    if (!/^https?:\/\//.test(v)) v = 'https://' + v;
-    try { localStorage.setItem('haru.server', v); } catch { /* ignore */ }
-    location.replace(location.pathname);
-  };
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-  document.body.append(h('div', { class: 'offline-wrap' }, h('div', { class: 'offline glass' },
-    h('img', { src: 'icons/icon-192.png', alt: '', width: 72, height: 72, style: { borderRadius: '18px' } }),
-    h('h1', { class: 'h2' }, '내 컴퓨터의 하루에 연결하기'),
-    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.7 } }, '기록은 내 컴퓨터에 저장돼요. 컴퓨터의 하루 → 설정 → 휴대폰에서 열기에 있는 GitHub 주소 QR을 찍으면 자동으로 연결돼요. 직접 넣으려면 Tailscale 주소를 입력하세요.'),
-    inp,
-    h('button', { class: 'btn btn-ink btn-lg', onclick: go }, '연결'))));
-}
 function offlineScreen() {
   const box = h('div', { class: 'offline glass' },
     h('img', { src: 'icons/icon-192.png', alt: '', width: 72, height: 72, style: { borderRadius: '18px' } }),
@@ -266,7 +254,8 @@ function offlineScreen() {
       h('li', null, '컴퓨터에서 start.bat(검은 창)이 실행 중인지'),
       h('li', null, '휴대폰의 Tailscale 앱이 연결(Connected) 상태인지')),
     h('button', { class: 'btn btn-ink btn-lg', onclick: () => location.reload() }, icon('refresh', 18), '다시 연결'),
-    REMOTE ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { try { localStorage.removeItem('haru.server'); } catch { /* ignore */ } location.replace(location.pathname); } }, '컴퓨터 주소 바꾸기') : null);
+    REMOTE ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { try { localStorage.removeItem('haru.server'); } catch { /* ignore */ } location.replace(location.pathname); } }, '컴퓨터 없이 이 기기에서만 쓰기') : null,
+    REMOTE ? h('p', { class: 'tiny muted', style: { margin: 0, lineHeight: 1.6 } }, '이 기기에서만 쓰면 기록이 이 브라우저에 따로 저장돼요. 컴퓨터의 기록은 설정 → 데이터의 백업으로 옮길 수 있어요.') : null);
   document.body.append(h('div', { class: 'offline-wrap' }, box));
   // Chrome asks before a public site (github.io) may reach a device on the private network (Tailscale)
   if (REMOTE && navigator.permissions) {
@@ -290,6 +279,13 @@ export async function promptInstall() {
   installEvt = null; bus.emit('installable');
   return outcome === 'accepted';
 }
+// first visit to the web version: say where the records go
+function welcomeLocal() {
+  try { if (localStorage.getItem('haru.localTip')) return; localStorage.setItem('haru.localTip', '1'); } catch { return; }
+  toast('가입 없이 바로 쓰면 돼요. 기록은 이 기기의 브라우저에만 저장되고, 설정 → 데이터에서 백업할 수 있어요.', {
+    title: '하루에 오신 걸 환영해요', icon: 'sparkle', duration: 10000, action: { label: '사용 가이드', onClick: () => { location.href = 'guide/'; } },
+  });
+}
 const isPhone = () => matchMedia('(pointer: coarse)').matches && innerWidth < 900;
 function suggestInstall() {
   if (isStandalone() || !isPhone()) return;
@@ -303,10 +299,9 @@ function suggestInstall() {
 
 // ---------- boot ----------
 async function boot() {
-  if (REMOTE && !API_BASE) { applyTheme('system'); connectScreen(); return; }
-  if (location.hostname.endsWith('github.io') && new URLSearchParams(location.search).has('server')) history.replaceState(null, '', location.pathname + location.hash);
+  if (REMOTE && new URLSearchParams(location.search).has('server')) history.replaceState(null, '', location.pathname + location.hash);
   await store.load();
-  if (!store.fromServer && !onThisComputer()) { applyTheme(); offlineScreen(); return; }
+  if (!LOCAL && !store.fromServer && !onThisComputer()) { applyTheme(); offlineScreen(); return; }
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => bus.emit('theme'));
   document.addEventListener('pointerdown', ripple);
@@ -355,10 +350,11 @@ async function boot() {
   setTimeout(daily, 1200);
   setInterval(daily, 60000);
 
-  connectEvents();
+  if (LOCAL) startReminders(showNotify); else connectEvents();
   setTimeout(announcePhone, 2500);
   setTimeout(suggestInstall, 3500);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-  if (!store.serverOk) toast('하루 서버에 연결하지 못했어요. 지금은 이 브라우저에만 저장돼요.', { icon: 'lock', duration: 7000 });
+  if (LOCAL) welcomeLocal();
+  else if (!store.serverOk) toast('하루 서버에 연결하지 못했어요. 지금은 이 브라우저에만 저장돼요.', { icon: 'lock', duration: 7000 });
 }
 boot();

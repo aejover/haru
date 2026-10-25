@@ -30,13 +30,30 @@
 
 홈 화면의 하루 아이콘으로 열면 주소창 없이 앱처럼 전체 화면으로 열려요. 기록은 컴퓨터에 하나로 저장되고, 컴퓨터와 휴대폰에서 바꾼 내용은 서로 곧바로 반영돼요. 컴퓨터에 연결할 수 없을 때는 무엇을 확인할지 알려 주는 화면이 떠요.
 
-## GitHub Pages로 열기
+## 웹에서 바로 쓰기 (컴퓨터·Tailscale 필요 없음)
 
-앱 화면은 **https://aejover.github.io/haru/** 에도 올라가 있어요. 기록·Claude·알림은 여전히 내 컴퓨터(start.bat 3번, Tailscale)를 통해 동작해서, 컴퓨터가 켜져 있고 Tailscale로 연결된 내 기기에서만 내 기록이 보여요.
+**https://aejover.github.io/haru/** 를 열면 누구나 가입 없이 바로 쓸 수 있어요("이 기기에서만" 모드).
 
-- 처음 열 때는 컴퓨터의 **설정 → 휴대폰에서 열기**에 있는 GitHub Pages QR로 여세요. 컴퓨터 주소가 자동으로 연결돼요.
-- Chrome이 "로컬 네트워크의 기기에 액세스" 권한을 물으면 **허용**을 눌러 주세요.
-- 코드를 고친 뒤 다시 배포하려면: `git subtree split --prefix public main`으로 만든 커밋을 `gh-pages` 브랜치로 올리면 돼요.
+- 기록과 사진·녹음은 그 기기 브라우저의 IndexedDB에 저장되고, 어디에도 보내지지 않아요. 기기마다 따로 저장되니 옮길 때는 **설정 → 데이터 → 백업 내보내기 / 불러오기**를 써요(사진·녹음도 백업에 들어가요).
+- Claude 기능은 각자 **설정 → Claude**에 자기 API 키를 넣어야 동작해요. 키는 그 브라우저에만 저장되고 Anthropic으로 직접 보내지므로, 다른 사람이 써도 내 키로 요금이 나가지 않아요.
+- 독촉·일정 알림은 하루가 열려 있는 동안 그 기기에서 보내요(ntfy 연결 시 휴대폰으로도).
+- 컴퓨터의 하루 서버와 연결해 쓰고 싶으면 **설정 → 다른 기기에서 쓰기 → 내 컴퓨터의 하루 서버와 연결하기**에 Tailscale 주소를 넣으면 돼요(예전처럼 `?server=` QR로 열어도 돼요).
+- 다시 배포하려면: `npm run site`로 페이지를 만든 뒤, `git subtree split --prefix public main`으로 만든 커밋을 `gh-pages` 브랜치로 올려요.
+
+## 소개·가이드·정책 페이지와 SEO
+
+`site/content/`의 글(소개, 사용 가이드 8편, 개인정보처리방침, 이용약관, 문의)을 `npm run site`가 `public/`에 HTML로 만들고, `sitemap.xml`·`robots.txt`와 앱 화면의 검색용 태그(설명, 대표 주소, 공유 이미지, 구조화 데이터)도 함께 만들어요. 공유 이미지(`public/og-image.png`)의 원본은 `site/og.html`이에요.
+
+주소나 코드가 생기면 `site/build.mjs` 맨 위의 값만 바꾸고 `npm run site`를 다시 실행하세요.
+
+| 값 | 언제 |
+|---|---|
+| `SITE_URL` | 내 도메인으로 옮길 때 (예: `https://haru.example.com/`) |
+| `GOOGLE_SITE_VERIFICATION` | Google Search Console에서 "HTML 태그"로 소유권 확인할 때 |
+| `NAVER_SITE_VERIFICATION` | 네이버 서치어드바이저에 등록할 때 |
+| `ADSENSE_CLIENT` | AdSense 게시자 ID(`ca-pub-…`)를 받으면. 광고 스크립트·확인 태그·`ads.txt`가 함께 만들어져요 |
+
+> GitHub Pages의 `aejover.github.io/haru`는 하위 경로라서 `robots.txt`·`ads.txt`가 도메인 맨 위에 있지 않아요. 검색 등록은 Search Console에 사이트맵을 직접 제출하면 되지만, **AdSense는 내 도메인이 있어야 신청할 수 있어요.**
 
 ## 처음 한 번 설정 (설정 탭)
 
@@ -63,7 +80,7 @@
 
 ## 알아 둘 점
 
-- 데이터는 모두 이 컴퓨터의 `data/` 폴더에 저장됩니다 (`state.json`, 사진·녹음은 `files/`). 설정 탭에서 백업 파일로 내보낼 수 있어요.
+- 컴퓨터에서 서버로 쓸 때 데이터는 모두 이 컴퓨터의 `data/` 폴더에 저장됩니다 (`state.json`, 사진·녹음은 `files/`). 웹에서 쓸 때는 그 기기의 브라우저에 저장돼요. 설정 탭에서 백업 파일로 내보낼 수 있어요.
 - 서버는 이 컴퓨터(localhost)에서만 열립니다. 휴대폰으로는 앱 화면이 아니라 ntfy 알림을 받습니다.
 - 받아쓰기는 Chrome·Edge에서만 동작합니다 (인터넷 필요).
 - 한글(.hwp) 형식으로 직접 저장할 수는 없어서, 한글에서 열 수 있는 .doc로 저장합니다. 엑셀은 .xlsx, PPT는 .pptx로 저장돼요.
