@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /haru/files/
+Disallow: /files/
 
-Sitemap: https://aejover.github.io/haru/sitemap.xml
+Sitemap: https://haru.ree486555.workers.dev/sitemap.xml

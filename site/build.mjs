@@ -3,7 +3,7 @@
 // Run after editing content or changing the address:  npm run site
 //
 // Change these when moving to your own domain or after AdSense / Search Console give you codes.
-const SITE_URL = (process.env.SITE_URL || 'https://aejover.github.io/haru/').replace(/\/?$/, '/');
+const SITE_URL = (process.env.SITE_URL || 'https://haru.ree486555.workers.dev/').replace(/\/?$/, '/');
 const ADSENSE_CLIENT = process.env.ADSENSE_CLIENT || ''; // e.g. 'ca-pub-1234567890123456'
 const GOOGLE_SITE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION || ''; // Search Console "HTML 태그" content value
 const NAVER_SITE_VERIFICATION = process.env.NAVER_SITE_VERIFICATION || ''; // 네이버 서치어드바이저 content value
