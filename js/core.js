@@ -131,6 +131,8 @@ const P = {
   chart: '<path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/>',
   wallet: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M20.5 12h-4a1.8 1.8 0 0 0 0 3.6h4"/>',
   routine: '<path d="M18.5 8.5A7.5 7.5 0 1 0 19.5 12"/><path d="M19.5 4.5v4h-4M9 12.2l2 2 4-4.2"/>',
+  qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M17 17h3v3h-3z"/>',
+  sync: '<path d="M19.5 9A7.5 7.5 0 0 0 6.2 6.6L4.5 8.3M4.5 4.5v3.8h3.8M4.5 15a7.5 7.5 0 0 0 13.3 2.4l1.7-1.7M19.5 19.5v-3.8h-3.8"/>',
   wind: '<path d="M3.5 9.5h11a2.8 2.8 0 1 0-2.8-2.8M3.5 14.5h14a2.8 2.8 0 1 1-2.8 2.8M3.5 12h8"/>',
   user: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5"/>',
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
@@ -177,6 +179,13 @@ const P = {
   underline: '<path d="M7 4.5V11a5 5 0 0 0 10 0V4.5M5.5 20h13"/>',
   strike: '<path d="M4.5 12h15M16 7.5a4 3 0 0 0-4-2.5c-2.5 0-4 1.2-4 3 0 3.6 8 2.6 8 6.6 0 1.9-1.8 3.4-4.2 3.4A4.6 4.6 0 0 1 7.5 16"/>',
   alignL: '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  // placing an object on the slide (left / center / right, top / middle / bottom)
+  posL: '<path d="M4 3v18"/><rect x="7" y="6" width="12" height="4" rx="1"/><rect x="7" y="14" width="8" height="4" rx="1"/>',
+  posC: '<path d="M12 3v18"/><rect x="5" y="6" width="14" height="4" rx="1"/><rect x="7.5" y="14" width="9" height="4" rx="1"/>',
+  posR: '<path d="M20 3v18"/><rect x="5" y="6" width="12" height="4" rx="1"/><rect x="9" y="14" width="8" height="4" rx="1"/>',
+  posT: '<path d="M3 4h18"/><rect x="6" y="7" width="4" height="12" rx="1"/><rect x="14" y="7" width="4" height="8" rx="1"/>',
+  posM: '<path d="M3 12h18"/><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="7.5" width="4" height="9" rx="1"/>',
+  posB: '<path d="M3 20h18"/><rect x="6" y="5" width="4" height="12" rx="1"/><rect x="14" y="9" width="4" height="8" rx="1"/>',
   alignC: '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
   alignR: '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
   alignJ: '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
@@ -246,7 +255,7 @@ export const bus = {
 
 // ---------- store ----------
 const LS_KEY = 'haru.state.v1';
-const editingNow = () => { const a = document.activeElement; return !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+export const editingNow = () => { const a = document.activeElement; return !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
 // The computer's server holds the one true copy. Several devices (PC, phone) can be open at once:
 // every save bumps a revision, the server tells the other devices, and they reload the data when idle.
 export const store = {
@@ -386,7 +395,7 @@ function seed() {
     tier: { lp: 0, history: [], weeks: [], lastDay: addDays(today, -1), lastWeek: mondayOf(today), weekSeen: mondayOf(today) },
   };
 }
-function migrate(s) {
+export function migrate(s) {
   const d = seed();
   for (const k of Object.keys(d)) if (s[k] === undefined) s[k] = d[k];
   s.settings = { ...d.settings, ...s.settings };

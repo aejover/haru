@@ -2,8 +2,8 @@
 // App files are network-first (always fresh when online, cached copy otherwise); uploaded files are
 // cache-first; /api and anything on another origin (the computer, seen from GitHub Pages) is never cached.
 // Paths are relative so the same files work at "/" (the 하루 server) and at "/haru/" (GitHub Pages).
-const CACHE = 'haru-shell-v4';
-const SHELL = ['./', 'index.html', 'css/app.css', 'js/main.js', 'js/core.js', 'js/local.js', 'js/claude-local.js', 'js/remind.js', 'manifest.webmanifest', 'icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
+const CACHE = 'haru-shell-v5';
+const SHELL = ['./', 'index.html', 'css/app.css', 'js/main.js', 'js/core.js', 'js/local.js', 'js/claude-local.js', 'js/remind.js', 'js/sync.js', 'manifest.webmanifest', 'icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 const ROOT = new URL('./', self.location).href;
 
 self.addEventListener('install', e => {

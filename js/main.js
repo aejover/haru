@@ -4,6 +4,7 @@ import {
   levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE, LOCAL,
 } from './core.js';
 import { startReminders } from './remind.js';
+import { startSync, offerJoin } from './sync.js';
 import pomodoro, { tickPomo, resumePomo, remaining, durOf, MODES, focusToday, countdown, toggle as pomoToggle } from './pomodoro.js';
 import youtube, { initYouTubeHost, ytState, togglePlay } from './youtube.js';
 import { initAssistant } from './assistant.js';
@@ -326,6 +327,10 @@ async function boot() {
   bus.on('theme', () => { if (drawer().classList.contains('in')) paintDrawer(); });
   bus.on('saved', () => { if (drawer().classList.contains('in')) paintDrawer(); });
 
+  // opened by scanning another device's 기기 연결 QR: take the code out of the address before anything else
+  const pairCode = /^#pair=([A-Za-z0-9_.-]+)$/.exec(location.hash)?.[1];
+  if (pairCode) history.replaceState(null, '', location.pathname + location.search + '#home');
+
   resumePomo();
   initYouTubeHost();
   initAssistant({ go, currentView: () => current?.id || 'home', viewTitle });
@@ -351,6 +356,8 @@ async function boot() {
   setInterval(daily, 60000);
 
   if (LOCAL) startReminders(showNotify); else connectEvents();
+  startSync();
+  if (pairCode) setTimeout(() => offerJoin(pairCode), 700);
   setTimeout(announcePhone, 2500);
   setTimeout(suggestInstall, 3500);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
