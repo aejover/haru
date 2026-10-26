@@ -247,32 +247,32 @@ export function icon(name, size = 20, sw = 1.7) {
 export const iconHTML = (name, size = 20, sw = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
 // Claude's little companion: a square, blocky creature with side arms, four short legs and blinking eyes.
-// Claude's face: the otter plush — wide flat head, small side ears, big cream muzzle, closed smiling eyes,
-// whiskers — drawn flat with no outlines like the rest of 하루. Drawn on a 64×64 grid.
+// 포포's face (also the Claude button, in black & white): the otter plush — wide, flat head, small side ears,
+// big muzzle, closed smiling eyes, whiskers — drawn flat with no outlines like the rest of 하루. 64×64 grid.
 const OTTER_FACE = ''
-  + '<circle class="ear" cx="13.5" cy="21.5" r="5"/><circle class="ear" cx="50.5" cy="21.5" r="5"/>'
-  + '<circle class="ear paper" cx="13.5" cy="21.5" r="2.7"/><circle class="ear paper" cx="50.5" cy="21.5" r="2.7"/>'
-  + '<path class="head" d="M32 14.5c14.8 0 24.5 7.4 24.5 19S46.8 53.5 32 53.5 7.5 45.1 7.5 33.5 17.2 14.5 32 14.5z"/>'
-  + '<path class="paper" d="M32 29c9.8 0 17.4 4.5 17.4 10.8 0 6.6-7.2 11.2-17.4 11.2s-17.4-4.6-17.4-11.2C14.6 33.5 22.2 29 32 29z"/>'
-  + '<path class="eye" d="M17.8 25.6q4.1-4.3 8.2 0M38 25.6q4.1-4.3 8.2 0"/>'
-  + '<ellipse class="nose" cx="32" cy="35" rx="3.9" ry="3"/>'
-  + '<path class="line" d="M32 37.6V43.4M24.2 40.4Q32 48.8 39.8 40.4"/>'
-  + '<path class="line thin" d="M17.4 38.4l5.4 1M17.2 41.8h5.6M17.9 45.3l5-1.2M46.6 38.4l-5.4 1M46.8 41.8h-5.6M46.1 45.3l-5-1.2"/>'
-  + '<ellipse class="blush" cx="19.5" cy="32.5" rx="3.3" ry="2"/><ellipse class="blush" cx="44.5" cy="32.5" rx="3.3" ry="2"/>';
+  + '<circle class="ear" cx="11.5" cy="25" r="4.6"/><circle class="ear" cx="52.5" cy="25" r="4.6"/>'
+  + '<circle class="ear paper" cx="11.5" cy="25" r="2.4"/><circle class="ear paper" cx="52.5" cy="25" r="2.4"/>'
+  + '<path class="head" d="M32 18.5c15.4 0 26 6.8 26 16.8S47.4 51.5 32 51.5 6 45.3 6 35.3 16.6 18.5 32 18.5z"/>'
+  + '<path class="paper" d="M32 32.4c10.2 0 18 3.8 18 9.2 0 5.5-7.8 9.2-18 9.2s-18-3.7-18-9.2c0-5.4 7.8-9.2 18-9.2z"/>'
+  + '<path class="eye" d="M17.4 29.2q4.1-4 8.2 0M38.4 29.2q4.1-4 8.2 0"/>'
+  + '<ellipse class="nose" cx="32" cy="36.6" rx="3.8" ry="2.8"/>'
+  + '<path class="line" d="M32 39V44.4M24.4 41.8Q32 49.2 39.6 41.8"/>'
+  + '<path class="line thin" d="M16.4 40.2l5.6.9M16.2 43.4h5.8M16.9 46.6l5.2-1.1M47.6 40.2l-5.6.9M47.8 43.4h-5.8M47.1 46.6l-5.2-1.1"/>'
+  + '<ellipse class="blush" cx="19" cy="35.4" rx="3.3" ry="1.9"/><ellipse class="blush" cx="45" cy="35.4" rx="3.3" ry="1.9"/>';
 export function clawdSVG(size = 44) {
   return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_FACE}</g></svg>`;
 }
 // 포포: the same otter with its whole body — a round, extra-chubby belly (no folds) and stubby arms.
 export function popoSVG() {
   return '<svg class="popo" viewBox="0 0 200 250" aria-hidden="true">'
-    + '<ellipse class="popo-shadow" cx="100" cy="241" rx="62" ry="6"/>'
+    + '<ellipse class="popo-shadow" cx="100" cy="243" rx="70" ry="6"/>'
     + '<g class="popo-all">'
-    + '<g class="popo-feet"><ellipse cx="72" cy="232" rx="17" ry="9"/><ellipse cx="128" cy="232" rx="17" ry="9"/></g>'
-    + '<path class="popo-body" d="M100 64c34 0 54 22 59 54 5 30 15 62 11 86-4 26-34 34-70 34s-66-8-70-34c-4-24 6-56 11-86 5-32 25-54 59-54z"/>'
-    + '<ellipse class="popo-belly" cx="100" cy="176" rx="54" ry="50"/>'
-    + '<g class="popo-arm l"><path d="M46 128c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
-    + '<g class="popo-arm r"><path d="M154 128c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
-    + `<g class="popo-head"><g transform="translate(22 -14) scale(2.44)">${OTTER_FACE}</g></g>`
+    + '<g class="popo-feet"><ellipse cx="70" cy="233" rx="17" ry="8.5"/><ellipse cx="130" cy="233" rx="17" ry="8.5"/></g>'
+    + '<path class="popo-body" d="M100 72c26 0 42 14 48 36 18 13 30 36 30 63 0 40-35 64-78 64s-78-24-78-64c0-27 12-50 30-63 6-22 22-36 48-36z"/>'
+    + '<circle class="popo-belly" cx="100" cy="172" r="56"/>'
+    + '<g class="popo-arm l"><path d="M50 116c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
+    + '<g class="popo-arm r"><path d="M150 116c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
+    + `<g class="popo-head"><g transform="translate(22 -22) scale(2.44)">${OTTER_FACE}</g></g>`
     + '</g></svg>';
 }
 

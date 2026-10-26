@@ -1,8 +1,8 @@
-// Service worker: lets 하루 install as a phone/desktop app and open instantly.
+﻿// Service worker: lets ?섎（ install as a phone/desktop app and open instantly.
 // App files are network-first (always fresh when online, cached copy otherwise); uploaded files are
 // cache-first; /api and anything on another origin (the computer, seen from GitHub Pages) is never cached.
-// Paths are relative so the same files work at "/" (the 하루 server) and at "/haru/" (GitHub Pages).
-const CACHE = 'haru-shell-v6';
+// Paths are relative so the same files work at "/" (the ?섎（ server) and at "/haru/" (GitHub Pages).
+const CACHE = 'haru-shell-v7';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/main.js', 'js/core.js', 'js/local.js', 'js/claude-local.js', 'js/remind.js', 'js/sync.js', 'manifest.webmanifest', 'icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 const ROOT = new URL('./', self.location).href;
 
@@ -23,7 +23,7 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
-  // the app's own page (with or without #tab, ?server=…) is one cache entry; guide and policy pages are their own
+  // the app's own page (with or without #tab, ?server=?? is one cache entry; guide and policy pages are their own
   const isApp = url.pathname === new URL(ROOT).pathname || url.pathname.endsWith('/index.html') && url.pathname.slice(0, -10) === new URL(ROOT).pathname;
   const key = req.mode === 'navigate' && isApp ? ROOT : req;
   e.respondWith(fetch(req).then(res => {
