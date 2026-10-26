@@ -44,6 +44,7 @@
   --round: "Nunito", "Arial Rounded MT Bold", ui-rounded, "SF Pro Rounded", var(--font);
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --top: calc(64px + env(safe-area-inset-top, 0px));
+  --tabbar: 0px; /* height of the phone tab bar; 0 where there is none */
   --blur: blur(26px) saturate(170%);
   color-scheme: light;
 }
@@ -226,7 +227,33 @@ button.chip:hover { background: var(--tint-2); }
   display: flex; align-items: center; gap: 12px;
   background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, transparent) 60%, transparent 100%);
 }
-.topbar-title { font-weight: 700; font-size: 17px; letter-spacing: -.02em; opacity: .9; transition: opacity .3s; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-title { font-weight: 700; font-size: 17px; letter-spacing: -.02em; opacity: .9; transition: opacity .3s var(--ease), transform .55s var(--chewy); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-title.tucked { opacity: 0; transform: translateY(8px); }
+
+/* ---------- phone tab bar ---------- */
+.tabbar { display: none; }
+@media (max-width: 719px) {
+  :root { --tabbar: calc(62px + env(safe-area-inset-bottom, 0px)); }
+  .kb-open { --tabbar: 0px; }
+  .tabbar {
+    position: fixed; z-index: 35; left: 0; right: 0; bottom: 0; height: var(--tabbar);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px));
+    background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+    border-top: 1px solid var(--hair); box-shadow: 0 -6px 24px rgba(0,0,0,.05);
+    transition: transform .5s var(--chewy);
+  }
+  .kb-open .tabbar { height: calc(62px + env(safe-area-inset-bottom, 0px)); transform: translateY(110%); }
+  .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; color: var(--fg); opacity: .5; transition: opacity .3s var(--ease); -webkit-tap-highlight-color: transparent; }
+  .tab.on { opacity: 1; }
+  .tab-ico { position: relative; display: grid; place-items: center; width: 54px; height: 30px; border-radius: 999px; transition: background-color .35s var(--ease), transform .6s var(--bouncy); }
+  .tab.on .tab-ico { background: var(--tint-2); }
+  .tab:active .tab-ico { transform: scale(.88); }
+  .tab-lbl { font-size: 11px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+  .tab-badge { position: absolute; top: -2px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--fg); color: var(--bg); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+  /* the tab bar already has 메뉴 (전체); keep the top bar to title + status */
+  #menu-btn { display: none; }
+}
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .focus-chip { font-variant-numeric: tabular-nums; }
 .focus-chip svg, #pomo-chip svg, #radio-pill svg { flex: none; }
@@ -275,7 +302,7 @@ button.chip:hover { background: var(--tint-2); }
 /* ---------- view & page transitions ---------- */
 .view {
   position: fixed; inset: 0; z-index: 1; overflow-y: auto; overflow-x: hidden; outline: none;
-  padding: calc(var(--top) + 8px) max(16px, env(safe-area-inset-right, 0px)) calc(110px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  padding: calc(var(--top) + 8px) max(16px, env(safe-area-inset-right, 0px)) calc(110px + max(var(--tabbar), env(safe-area-inset-bottom, 0px))) max(16px, env(safe-area-inset-left, 0px));
   scrollbar-gutter: stable;
 }
 .page { max-width: 1120px; margin: 0 auto; animation: pageIn .75s var(--chewy) both; display: flex; flex-direction: column; gap: 16px; }
@@ -293,7 +320,7 @@ button.chip:hover { background: var(--tint-2); }
 /* tab opening: same chewy timing, only a few pixels of travel */
 @keyframes tabRise { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: none; } }
 .page-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 4px 4px 0; }
-.page-head .h1 { flex: 1; min-width: 0; }
+.page-head .h1 { flex: 1 0 auto; min-width: 0; white-space: nowrap; }
 /* tab changes cross-fade the old page out while the new one settles in (View Transitions) */
 .view { view-transition-name: page; }
 .vt-running .page { animation: none; }
@@ -322,7 +349,7 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
 .popover { position: fixed; z-index: 60; border-radius: var(--r-lg); background: var(--glass-strong); padding: 18px; transform-origin: top right; animation: popIn .7s var(--spring) both; }
 @keyframes popIn { from { opacity: 0; transform: scale(.85) translateY(-8px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
-.toast-root { position: fixed; z-index: 90; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: min(460px, calc(100vw - 32px)); }
+.toast-root { position: fixed; z-index: 90; left: 50%; bottom: calc(24px + max(var(--tabbar), env(safe-area-inset-bottom, 0px))); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: min(460px, calc(100vw - 32px)); }
 .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 11px 14px 11px 16px; border-radius: 18px; background: var(--ink); color: var(--ink-fg); box-shadow: var(--shadow-lg); font-size: 14px; font-weight: 550; animation: toastIn .8s var(--bouncy) both; max-width: 100%; }
 .toast.out { animation: toastOut .3s var(--ease) both; }
 .toast .t-body { flex: 1; min-width: 0; }
@@ -355,7 +382,7 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 
 /* ---------- Claude FAB + sheet ---------- */
 .claude-fab {
-  position: fixed; z-index: 50; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  position: fixed; z-index: 50; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + max(var(--tabbar), env(safe-area-inset-bottom, 0px)));
   width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
   background: var(--glass-strong); border: 1px solid var(--glass-stroke); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
   box-shadow: inset 0 1px 0 var(--spec), 0 10px 30px rgba(0,0,0,.18);
@@ -364,15 +391,18 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .claude-fab:hover { transform: translateY(-3px) scale(1.05); box-shadow: inset 0 1px 0 var(--spec), 0 16px 40px rgba(0,0,0,.24); }
 .claude-fab:active { transform: scale(.92); }
 .claude-fab.open { transform: rotate(-8deg) scale(.96); }
+@media (max-width: 719px) { .claude-fab { width: 56px; height: 56px; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(14px + max(var(--tabbar), env(safe-area-inset-bottom, 0px))); } }
 .clawd { width: 44px; height: 44px; overflow: visible; }
 /* the otter face, shared by the Claude button and 포포. Claude wears 하루's ink & paper (flips with the theme);
    포포 keeps the plush's own colors. */
 :root { --otter: #C99A60; --otter-shade: #B5864F; --otter-light: #D8AE76; --otter-cream: #F8F0DC; --otter-ink: #3B2A21; }
-.clawd .body { fill: var(--fg); transform-origin: 50% 90%; animation: bob 3.2s var(--ease-io) infinite; }
-.clawd .paper { fill: var(--bg); }
-.clawd .nose { fill: var(--fg); }
-.clawd .eye { fill: none; stroke: var(--bg); stroke-width: 2.4; stroke-linecap: round; }
-.clawd .line { fill: none; stroke: var(--fg); stroke-width: 1.7; stroke-linecap: round; }
+/* Claude: paper-colored head outlined in ink, ink muzzle with paper nose and whiskers */
+.clawd .body { fill: var(--bg); stroke: var(--fg); stroke-width: 2.2; stroke-linejoin: round; transform-origin: 50% 90%; animation: bob 3.2s var(--ease-io) infinite; }
+.clawd .ear.paper { fill: var(--fg); stroke: none; }
+.clawd .paper { fill: var(--fg); stroke: none; }
+.clawd .nose { fill: var(--bg); stroke: none; }
+.clawd .eye { fill: none; stroke: var(--fg); stroke-width: 2.4; stroke-linecap: round; }
+.clawd .line { fill: none; stroke: var(--bg); stroke-width: 1.7; stroke-linecap: round; }
 .clawd .blush { display: none; }
 .popo .paper { fill: var(--otter-cream); }
 .popo .nose { fill: var(--otter-ink); }
@@ -400,11 +430,20 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 @keyframes popoBreathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.018, .984); } }
 @keyframes earIdle { 0%, 88%, 100% { transform: rotate(0); } 92% { transform: rotate(-12deg); } 96% { transform: rotate(8deg); } }
 /* 힘들었어 → 애교: 고개를 갸웃갸웃, 볼이 발그레 */
-.popo-stage.tired .popo-head { animation: popoTilt 1.1s var(--ease-io) infinite; }
+.popo-stage.tired .popo-all { animation: popoTilt 1.1s var(--ease-io) infinite; }
 .popo-stage.tired .blush { opacity: .75; }
 .popo-stage.tired .popo-arm.l { transform: rotate(38deg); }
 .popo-stage.tired .popo-arm.r { transform: rotate(-38deg); }
-@keyframes popoTilt { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+@keyframes popoTilt { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+/* 배를 쓰다듬으면: 말 없이 몸을 꼬물꼬물, 볼이 발그레, 팔을 파닥파닥 */
+.popo-holder { touch-action: none; cursor: grab; }
+.popo-stage.pet .popo-all { animation: popoWiggle .5s var(--ease-io) infinite; }
+.popo-stage.pet .blush { opacity: .85; }
+.popo-stage.pet .popo-arm.l { animation: popoFlapL .4s var(--ease-io) infinite alternate; }
+.popo-stage.pet .popo-arm.r { animation: popoFlapR .4s var(--ease-io) infinite alternate; }
+@keyframes popoWiggle { 0%, 100% { transform: scale(1.04, .96) rotate(-2deg); } 50% { transform: scale(.97, 1.03) rotate(2deg); } }
+@keyframes popoFlapL { from { transform: rotate(0); } to { transform: rotate(28deg); } }
+@keyframes popoFlapR { from { transform: rotate(0); } to { transform: rotate(-28deg); } }
 /* 기분 좋아 → 같이 기뻐하기: 팔 들고 깡충깡충 */
 .popo-stage.happy .popo-all { animation: popoJump .62s var(--ease-io) infinite; }
 .popo-stage.happy .popo-arm.l { transform: rotate(105deg); }
@@ -427,8 +466,8 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .claude-sheet {
-  position: fixed; z-index: 51; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  width: min(420px, calc(100vw - 32px)); height: min(620px, calc(100vh - var(--top) - 120px)); border-radius: var(--r-xl);
+  position: fixed; z-index: 51; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(96px + max(var(--tabbar), env(safe-area-inset-bottom, 0px)));
+  width: min(420px, calc(100vw - 32px)); height: min(620px, calc(100vh - var(--top) - 120px - var(--tabbar))); border-radius: var(--r-xl);
   background: var(--glass-strong); display: flex; flex-direction: column; overflow: hidden; transform-origin: bottom right;
   animation: sheetIn .8s var(--chewy) both;
 }
@@ -462,7 +501,7 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .yt-host { position: fixed; z-index: 20; border-radius: var(--r-md); overflow: hidden; background: #000; box-shadow: var(--shadow-lg); transition: opacity .3s var(--ease); }
 .yt-host[data-mode="hidden"] { left: -10000px; top: 0; width: 320px; height: 180px; opacity: 0; pointer-events: none; }
 .yt-host[data-mode="radio"] { left: -10000px; top: 0; width: 320px; height: 180px; opacity: 0; pointer-events: none; }
-.yt-host[data-mode="mini"] { left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); width: 300px; height: 205px; z-index: 45; animation: popIn .7s var(--spring) both; }
+.yt-host[data-mode="mini"] { left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(20px + max(var(--tabbar), env(safe-area-inset-bottom, 0px))); width: 300px; height: 205px; z-index: 45; animation: popIn .7s var(--spring) both; }
 .yt-host[data-mode="mini"] .yt-frame { height: 169px; }
 .yt-frame { width: 100%; height: 100%; }
 .yt-frame iframe, .yt-frame > div { width: 100%; height: 100%; display: block; border: 0; }
@@ -480,10 +519,11 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 /* each page clips sideways, so one page's card shadows don't fall onto the other */
 .home-track > * { flex: 0 0 100%; min-width: 0; overflow-x: clip; }
 .home-main { display: flex; flex-direction: column; gap: 14px; padding: 12px 14px 40px; }
-.home-dots { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40; display: flex; gap: 6px; padding: 7px 10px; border-radius: 999px; background: var(--glass-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+.home-dots { position: fixed; left: 50%; bottom: calc(14px + max(var(--tabbar), env(safe-area-inset-bottom, 0px))); transform: translateX(-50%); z-index: 40; display: flex; gap: 6px; padding: 7px 10px; border-radius: 999px; background: var(--glass-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: 0 6px 18px rgba(0,0,0,.12); }
 .home-dots button { width: 8px; height: 8px; border-radius: 999px; background: var(--fg); opacity: .25; transition: width .5s var(--chewy), opacity .3s; }
 .home-dots button.on { width: 22px; opacity: .85; }
-.home-popo { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 18px 70px; min-height: calc(100dvh - var(--top) - 40px); justify-content: center; }
+.home-popo { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 18px 70px; min-height: calc(100dvh - var(--top) - var(--tabbar) - 40px); justify-content: center; }
+@media (max-width: 719px) { .home-popo { padding-bottom: 96px; } } /* clear the Claude button */
 .popo-bubble { position: relative; max-width: 460px; padding: 14px 18px; border-radius: 22px; background: var(--glass-strong); box-shadow: 0 8px 24px rgba(0,0,0,.08), inset 0 1px 0 var(--spec); font-size: 15px; line-height: 1.65; text-align: center; animation: tabRise .7s var(--chewy) both; }
 .popo-bubble::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 18px; height: 18px; background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 0 0 5px 0; }
 .popo-bubble.mood { animation: popoSay .55s var(--bouncy) both; }
@@ -576,9 +616,27 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .cal-ev.routine { background: transparent; color: var(--muted); }
 .cal-ev.ai::after { content: " ✦"; }
 .cal-more { font-size: 11px; color: var(--muted); text-align: left; padding-left: 6px; }
+/* a section that folds open smoothly (options behind a chip) */
+.fold { display: grid; grid-template-rows: 0fr; opacity: 0; margin-top: -10px; transition: grid-template-rows .55s var(--chewy), opacity .3s var(--ease), margin-top .55s var(--chewy); }
+.fold > * { overflow: hidden; min-height: 0; padding: 2px; margin: -2px; }
+.fold.open { grid-template-rows: 1fr; opacity: 1; margin-top: 0; }
+.fold:not(.open) > * { visibility: hidden; transition: visibility 0s .55s; }
+.opt-toggle { gap: 6px; }
+.opt-toggle svg { transition: transform .5s var(--chewy); }
+.opt-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.cal-dots { display: none; }
 @media (max-width: 640px) {
-  .cal-big .cal-cell { min-height: 64px; padding: 4px 2px; }
-  .cal-big .cal-ev { font-size: 10px; padding: 1px 3px; }
+  .cal-big .cal-cell { min-height: 54px; padding: 4px 2px; align-items: center; }
+  .cal-big .cal-cell .d { align-self: center; }
+  .cal-big .cal-ev, .cal-big .cal-more { display: none; }
+  .cal-big .cal-dots { display: flex; gap: 3px; justify-content: center; }
+  .cal-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--fg); }
+  .cal-dots i.r { background: transparent; box-shadow: inset 0 0 0 1.3px var(--fg); }
+  /* phones: month → selected day → image import, so the day's list sits right under the grid */
+  .cal-layout > .col { display: contents; }
+  .cal-layout .day-panel { order: 2; position: static; }
+  .cal-layout .cal-img { order: 3; }
 }
 .cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cal-head .month { font-size: 22px; font-weight: 750; letter-spacing: -.03em; min-width: 140px; }
@@ -628,8 +686,10 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .stepper .btn-icon { width: 32px; height: 32px; background: var(--glass-strong); }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hair); }
 .set-row:first-of-type { border-top: 0; }
-.set-row .lbl { flex: 1; min-width: 0; font-weight: 550; }
-.set-row .sub { display: block; font-size: 12.5px; color: var(--muted); font-weight: 450; }
+.set-row .lbl { flex: 1 1 140px; min-width: 0; font-weight: 550; text-align: left; }
+.set-row { flex-wrap: wrap; }
+/* (.sub is also the YouTube subscription tile below — reset its width/centering here) */
+.set-row .sub { display: block; width: auto; text-align: left; font-size: 12.5px; color: var(--muted); font-weight: 450; }
 
 /* ---------- bars chart ---------- */
 .chart { width: 100%; overflow-x: auto; }

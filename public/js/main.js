@@ -103,11 +103,44 @@ function renderRoute() {
   current = v;
   try { v.render(page, ctx, arg); }
   catch (e) { console.error(e); page.append(h('div', { class: 'glass card' }, h('h2', { class: 'h2' }, '화면을 그리지 못했어요'), h('p', { class: 'muted' }, String(e.message || e)))); }
-  $('#view-title').textContent = v.id === 'home' ? '' : v.title;
+  watchTitle(v);
   document.title = v.id === 'home' ? HOME_TITLE : `${v.title} · 하루`;
-  paintDrawer();
+  paintDrawer(); paintTabbar();
   closeDrawer(); closePopover();
   bus.emit('route', v.id);
+}
+
+// The page's own big heading already names the tab, so the top bar's title stays tucked away
+// and slides in only once that heading scrolls up under the bar.
+let titleObs = null;
+function watchTitle(v) {
+  const t = $('#view-title'), h1 = $('#view').querySelector('.page h1');
+  titleObs?.disconnect();
+  t.textContent = v.id === 'home' ? '' : v.title;
+  t.classList.toggle('tucked', !!h1);
+  if (!h1 || !window.IntersectionObserver) return;
+  titleObs = new IntersectionObserver(([e]) => t.classList.toggle('tucked', e.isIntersecting),
+    { root: $('#view'), rootMargin: `-${$('#topbar').offsetHeight}px 0px 0px 0px` });
+  titleObs.observe(h1);
+}
+
+// ---------- phone tab bar ----------
+// the four tabs people open most, plus 전체 for the rest (the drawer)
+const TABS = [['home', '홈', 'home'], ['checklist', '할 일', 'checklist'], ['calendar', '캘린더', 'calendar'], ['memo', '메모장', 'memo']];
+function paintTabbar() {
+  const k = dkey(), left = tasksOn(k).filter(t => !isDone(t, k)).length;
+  $('#tabbar').replaceChildren(
+    ...TABS.map(([id, label, ico]) => h('button', { class: 'tab' + (current?.id === id ? ' on' : ''), 'aria-current': current?.id === id ? 'page' : null, onclick: () => current?.id === id ? $('#view').scrollTo({ top: 0, behavior: 'smooth' }) : go(id) },
+      h('span', { class: 'tab-ico' }, icon(ico, 22), id === 'checklist' && left ? h('span', { class: 'tab-badge num' }, left > 9 ? '9+' : left) : null), h('span', { class: 'tab-lbl' }, label))),
+    h('button', { class: 'tab' + (TABS.some(([id]) => id === current?.id) ? '' : ' on'), 'aria-label': '전체 메뉴 열기', onclick: openDrawer },
+      h('span', { class: 'tab-ico' }, icon('menu', 22)), h('span', { class: 'tab-lbl' }, '전체')));
+}
+// the on-screen keyboard covers the bottom of the screen: tuck the tab bar away while typing
+function watchKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const check = () => document.documentElement.classList.toggle('kb-open', innerHeight - vv.height > 150);
+  vv.addEventListener('resize', check);
 }
 
 // ---------- drawer ----------
@@ -326,6 +359,8 @@ async function boot() {
   });
   bus.on('theme', () => { if (drawer().classList.contains('in')) paintDrawer(); });
   bus.on('saved', () => { if (drawer().classList.contains('in')) paintDrawer(); });
+  bus.on('change', w => { if (w === 'tasks' || w === 'all') paintTabbar(); });
+  watchKeyboard();
 
   // opened by scanning another device's 기기 연결 QR: take the code out of the address before anything else
   const pairCode = /^#pair=([A-Za-z0-9_.-]+)$/.exec(location.hash)?.[1];

@@ -26,11 +26,19 @@ export default {
       const b = h('button', { class: 'chip sm line', 'aria-pressed': 'false', onclick: () => { const on = !f.days.includes(i); f.days = on ? [...f.days, i] : f.days.filter(x => x !== i); b.classList.toggle('ink', on); b.setAttribute('aria-pressed', String(on)); } }, w);
       return b;
     }));
-    const kindSeg = seg([['once', '오늘만 (한 번)'], ['daily', '매일 반복']], 'once', v => { f.kind = v; dayChips.hidden = v !== 'daily'; date.hidden = v === 'daily'; });
-    const modeSeg = seg([['normal', '일반'], ['nag', '독촉']], 'normal', v => { f.mode = v; modeHint.textContent = v === 'nag' ? '안 하면 할 때까지 알림이 가요. 밀리면 다음 날 3번, 다다음 날 5번, 3일째부터 10번.' : '알림 없이 체크만 해요.'; });
+    const kindSeg = seg([['once', '오늘만 (한 번)'], ['daily', '매일 반복']], 'once', v => { f.kind = v; dayChips.hidden = v !== 'daily'; date.hidden = v === 'daily'; sum(); });
+    const modeSeg = seg([['normal', '일반'], ['nag', '독촉']], 'normal', v => { f.mode = v; modeHint.textContent = v === 'nag' ? '안 하면 할 때까지 알림이 가요. 밀리면 다음 날 3번, 다다음 날 5번, 3일째부터 10번.' : '알림 없이 체크만 해요.'; sum(); });
     const modeHint = h('div', { class: 'small muted' }, '알림 없이 체크만 해요.');
     const goal = goalSelect();
     goal.style.width = 'auto';
+    // the options stay folded behind one chip that says what they're set to
+    const optLabel = h('span');
+    const optBtn = h('button', { class: 'chip sm line opt-toggle', 'aria-expanded': 'false', onclick: () => { const open = !opts.classList.contains('open'); opts.classList.toggle('open', open); optBtn.setAttribute('aria-expanded', String(open)); } }, optLabel, icon('down', 14));
+    const sum = () => {
+      const when = f.kind === 'daily' ? '매일' : date.value && date.value !== dkey() ? fmtShort(date.value) : '오늘';
+      optLabel.textContent = [when, f.mode === 'nag' ? '독촉' : '일반', time.value, goal.value ? '목표 연결' : ''].filter(Boolean).join(' · ');
+    };
+    [date, time, goal].forEach(x => x.addEventListener('change', sum));
     function add() {
       const t = title.value.trim();
       if (!t) { title.focus(); return; }
@@ -39,14 +47,17 @@ export default {
         desktopNotify('독촉 모드 켜짐', `"${t}"을(를) 끝낼 때까지 알려 드릴게요.`);
         if (!s.settings.ntfyTopic) toast('휴대폰으로도 독촉받으려면 설정에서 휴대폰 알림을 연결하세요.', { action: { label: '설정', onClick: () => { location.hash = 'settings'; } }, duration: 6000 });
       }
-      title.value = ''; time.value = '';
+      title.value = ''; time.value = ''; sum();
       paint();
     }
-    const form = h('section', { class: 'glass card col' },
-      h('h2', { class: 'h2' }, '새 할 일'),
-      h('div', { class: 'row wrap' }, h('div', { class: 'grow', style: { minWidth: '220px' } }, title), h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '추가')),
+    const opts = h('div', { class: 'fold' }, h('div', { class: 'col' },
       h('div', { class: 'row wrap' }, kindSeg, modeSeg, date, time, goal),
-      dayChips, modeHint);
+      dayChips, modeHint));
+    const form = h('section', { class: 'glass card col' },
+      h('div', { class: 'row' }, h('div', { class: 'grow', style: { minWidth: 0 } }, title), h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '추가')),
+      h('div', { class: 'row' }, optBtn),
+      opts);
+    sum();
 
     // ----- nag ladder explanation -----
     const ladder = h('section', { class: 'glass card col' },
