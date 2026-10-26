@@ -1,0 +1,12 @@
+// haru-sync: deploy from this folder with `npx wrangler deploy` (after `npx wrangler login` once).
+{
+  "name": "haru-sync",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  // SQLite-backed Durable Objects work on the Workers free plan
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}

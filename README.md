@@ -40,6 +40,18 @@
 - 컴퓨터의 하루 서버와 연결해 쓰고 싶으면 **설정 → 다른 기기에서 쓰기 → 내 컴퓨터의 하루 서버와 연결하기**에 Tailscale 주소를 넣으면 돼요(예전처럼 `?server=` QR로 열어도 돼요).
 - 다시 배포하려면: `npm run site`로 페이지를 만든 뒤, `git subtree split --prefix public main`으로 만든 커밋을 `gh-pages` 브랜치로 올려요.
 
+## 기기 연결 (Tailscale 없이 컴퓨터 ↔ 휴대폰)
+
+**설정 → 기기 연결 → 연결 QR 만들기**로 만든 QR을 다른 기기 카메라로 찍으면 같은 기록을 함께 써요. 각 기기가 자기 사본으로 따로 동작하고(컴퓨터가 꺼져 있어도 됨), 열려 있을 때 암호화한 사본을 `sync-worker/`의 Cloudflare Worker(`haru-sync`)로 주고받으며 항목 단위로 합쳐요. 열쇠는 QR에만 있어 서버는 내용을 볼 수 없어요.
+
+워커를 고친 뒤 다시 올리려면:
+
+```
+cd sync-worker
+npx wrangler login   (처음 한 번)
+npx wrangler deploy
+```
+
 ## 소개·가이드·정책 페이지와 SEO
 
 `site/content/`의 글(소개, 사용 가이드 8편, 개인정보처리방침, 이용약관, 문의)을 `npm run site`가 `public/`에 HTML로 만들고, `sitemap.xml`·`robots.txt`와 앱 화면의 검색용 태그(설명, 대표 주소, 공유 이미지, 구조화 데이터)도 함께 만들어요. 공유 이미지(`public/og-image.png`)의 원본은 `site/og.html`이에요.

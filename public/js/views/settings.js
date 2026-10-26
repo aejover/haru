@@ -3,6 +3,7 @@ import { h, icon, store, commit, toast, seg, switchEl, confirmDialog, download, 
 import { exportFiles, importFiles, wipe } from '../local.js';
 import { localKey, localModel, setLocalKey, setLocalModel } from '../claude-local.js';
 import { sendNtfy } from '../remind.js';
+import { syncPanel } from '../sync.js';
 import { applyTheme, isStandalone, canInstall, promptInstall } from '../main.js';
 import { searchCity, clearWeatherCache } from '../weather.js';
 import { googleConfigured, googleLinked, googleSignIn, googleSignOut } from '../google.js';
@@ -21,7 +22,7 @@ function localDevices() {
   };
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
   return h('div', { class: 'col' },
-    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.7 } }, '휴대폰이나 다른 컴퓨터에서도 이 주소를 열면 바로 쓸 수 있어요. 다만 기록은 기기마다 따로 저장돼요. 옮기려면 아래 데이터에서 "백업 내보내기"로 파일을 만들고, 다른 기기에서 "백업 불러오기"를 누르세요.'),
+    h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.7 } }, '휴대폰이나 다른 컴퓨터에서도 이 주소를 열면 바로 쓸 수 있어요. 기록은 기기마다 따로 저장되니, 같은 기록을 쓰려면 위의 "기기 연결"에서 QR로 연결하세요. 한 번만 옮기려면 아래 데이터의 백업 내보내기·불러오기를 써도 돼요.'),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { try { await navigator.clipboard.writeText(location.origin + location.pathname); toast('주소를 복사했어요.'); } catch { toast(location.origin + location.pathname); } } }, icon('copy', 14), '이 주소 복사')),
     h('details', { class: 'small' },
@@ -136,6 +137,7 @@ export default {
     el.append(
       h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '설정')),
       card('화면', row('테마', '블랙 · 화이트 반전', themeSeg)),
+      card('기기 연결 (컴퓨터 ↔ 휴대폰)', syncPanel(ctx)),
       phoneBox, installBox,
       card('날씨 지역', h('div', { class: 'row' }, icon('cloud', 18), cityLabel, h('span', { class: 'spacer' }), S.city ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { S.city = null; commit('settings'); clearWeatherCache(); cityLabel.textContent = '현재 위치'; } }, '현재 위치 사용') : null), cityIn, cityResults),
       card('Claude',

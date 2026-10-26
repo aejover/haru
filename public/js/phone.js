@@ -6,7 +6,7 @@ export async function phoneInfo() {
   try { return await (await fetch('/api/phone', { cache: 'no-store' })).json(); } catch { return null; }
 }
 
-async function qrNode(url) {
+export async function qrNode(url) {
   try {
     await loadScript(LIBS.qr);
     const q = window.qrcode(0, 'M'); q.addData(url); q.make();

@@ -313,6 +313,14 @@ async function api(req, res, url) {
     await fsp.writeFile(path.join(FILES, id), body);
     return json(res, 200, { url: '/files/' + id, name, size: body.length, type: req.headers['content-type'] || '' });
   }
+  // a photo/recording synced from a paired device: saved under the same id its records use
+  const fileM = /^\/api\/files\/([A-Za-z0-9._-]{1,80})$/.exec(p);
+  if (fileM && req.method === 'PUT') {
+    const file = path.join(FILES, fileM[1]);
+    if (fs.existsSync(file)) return json(res, 200, { ok: true, existed: true });
+    await fsp.writeFile(file, await readBody(req, 200 * 1024 * 1024));
+    return json(res, 200, { ok: true });
+  }
   if (p === '/api/config' && req.method === 'GET') {
     const key = config.apiKey || process.env.ANTHROPIC_API_KEY || '';
     return json(res, 200, { hasKey: !!key, keyHint: key ? '••••' + key.slice(-4) : '', fromEnv: !config.apiKey && !!process.env.ANTHROPIC_API_KEY, model: config.model || 'claude-opus-5-5' });

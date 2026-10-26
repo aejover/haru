@@ -34,6 +34,8 @@ export async function putFile(blob, name = 'file') {
   return { url: '/files/' + id, name, size: blob.size, type: blob.type || '' };
 }
 export const fileBlob = id => run(FILES, 'readonly', s => s.get(id)).catch(() => null);
+// a file that arrived from another paired device keeps its id, so the records that point at it still work
+export const putFileAs = (id, blob) => run(FILES, 'readwrite', s => s.put(blob, id));
 const urls = new Map();
 export async function fileURL(id) {
   if (urls.has(id)) return urls.get(id);

@@ -97,6 +97,14 @@ export function mountSlides(host, doc, { onChange }) {
         tb('alignL', '왼쪽', () => { e.align = 'left'; refresh(); }), tb('alignC', '가운데', () => { e.align = 'center'; refresh(); }), tb('alignR', '오른쪽', () => { e.align = 'right'; refresh(); }),
         tb('list', '글머리 기호', () => { toggleBullets(e); refresh(); })) : null,
       e && (e.type === 'rect' || e.type === 'ellipse') ? group(colorBtn('fill', '채우기 색', e.fill || '#cccccc', v => { e.fill = v; refresh(); })) : null,
+      // place the selected text box, picture or shape on the slide
+      e ? group(
+        tb('posL', '슬라이드 왼쪽에 맞추기', () => { e.x = 0; refresh(); }),
+        tb('posC', '슬라이드 가운데에 맞추기', () => { e.x = Math.round((W - e.w) / 2); refresh(); }),
+        tb('posR', '슬라이드 오른쪽에 맞추기', () => { e.x = Math.round(W - e.w); refresh(); }),
+        tb('posT', '슬라이드 위쪽에 맞추기', () => { e.y = 0; refresh(); }),
+        tb('posM', '슬라이드 중간에 맞추기', () => { e.y = Math.round((H - e.h) / 2); refresh(); }),
+        tb('posB', '슬라이드 아래쪽에 맞추기', () => { e.y = Math.round(H - e.h); refresh(); })) : null,
       e ? group(tb('front', '맨 앞으로', () => { const a = slide().els; a.push(...a.splice(a.indexOf(e), 1)); refresh(); }), tb('back', '맨 뒤로', () => { const a = slide().els; a.unshift(...a.splice(a.indexOf(e), 1)); refresh(); }),
         tb('x', '요소 삭제 (Delete)', () => { slide().els = slide().els.filter(x => x !== e); selId = null; refresh(); })) : null,
       group(colorBtn('palette', '배경색', slide().bg, v => { slide().bg = v; refresh(); }),
@@ -149,14 +157,26 @@ export function mountSlides(host, doc, { onChange }) {
     const x0 = ev.clientX, y0 = ev.clientY, sx = e.x, sy = e.y, sw = e.w, shh = e.h;
     let moved = false;
     const node = () => box.querySelector(`[data-id="${e.id}"]`);
+    // dragging near the slide's center line (left–right) or middle line (top–bottom) catches there, with a guide
+    const SNAP = 10;
+    const stage = box.querySelector('.stage');
+    const guideV = h('i', { class: 'sl-guide v', style: { left: W / 2 + 'px' } }), guideH = h('i', { class: 'sl-guide h', style: { top: H / 2 + 'px' } });
     const move = m => {
       const dx = (m.clientX - x0) / scale, dy = (m.clientY - y0) / scale;
       if (Math.abs(dx) + Math.abs(dy) > 1) moved = true;
       if (resizing) { e.w = Math.max(20, sw + dx); e.h = Math.max(20, m.shiftKey && e.type !== 'text' ? (sw + dx) * (shh / sw) : shh + dy); }
-      else { e.x = Math.round(sx + dx); e.y = Math.round(sy + dy); }
+      else {
+        e.x = Math.round(sx + dx); e.y = Math.round(sy + dy);
+        const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+        const snapX = !m.altKey && Math.abs(cx - W / 2) < SNAP, snapY = !m.altKey && Math.abs(cy - H / 2) < SNAP;
+        if (snapX) e.x = Math.round((W - e.w) / 2);
+        if (snapY) e.y = Math.round((H - e.h) / 2);
+        if (snapX) stage.append(guideV); else guideV.remove();
+        if (snapY) stage.append(guideH); else guideH.remove();
+      }
       const n = node(); if (n) Object.assign(n.style, { left: e.x + 'px', top: e.y + 'px', width: e.w + 'px', height: e.h + 'px' });
     };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (moved) changed(); };
+    const up = () => { guideV.remove(); guideH.remove(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (moved) changed(); };
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   }
   function onDbl(ev) {
