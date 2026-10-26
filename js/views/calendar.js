@@ -32,6 +32,8 @@ function bigMonth(ym, sel, onPick) {
       onclick: () => onPick(k), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일`,
     }, h('span', { class: 'd' }, d.getDate()), items.slice(0, max),
       items.length > max ? h('div', { class: 'cal-more' }, `+${items.length - max}`) : null,
+      // phones show dots instead of squeezed titles; the day panel below lists them
+      evs.length || todos.length ? h('span', { class: 'cal-dots' }, evs.slice(0, 3).map(() => h('i')), todos.slice(0, 2).map(() => h('i', { class: 'r' }))) : null,
       routines.length && items.length < max ? h('div', { class: 'cal-ev routine' }, `루틴 ${routines.filter(t => isDone(t, k)).length}/${routines.length}`) : null));
   }
   return grid;
@@ -60,7 +62,7 @@ export default {
     let ym = sel.slice(0, 7);
 
     const head = h('div', { class: 'cal-head' });
-    const imgBox = h('div');
+    const imgBox = h('div', { class: 'cal-img' });
     const gridBox = h('section', { class: 'glass card' });
     const panel = h('aside', { class: 'day-panel' });
 

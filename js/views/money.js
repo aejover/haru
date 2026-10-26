@@ -171,9 +171,17 @@ function debtsCard(paint) {
       closed.length ? h('button', { class: 'btn btn-ghost btn-sm', style: { alignSelf: 'flex-start' }, onclick: e => { more.hidden = !more.hidden; e.currentTarget.textContent = more.hidden ? `정리된 거래 ${closed.length}개 보기` : '정리된 거래 숨기기'; } }, `정리된 거래 ${closed.length}개 보기`) : null,
       more);
   };
+  // the totals come first; the form folds open from the 적기 button
+  const form = h('div', { class: 'fold' }, h('div', { class: 'mn-debt-form' }, typeSeg, h('div', { class: 'mn-debt-inputs' }, who, amount, h('label', { class: 'mn-date' }, h('span', { class: 'tiny muted' }, '날짜'), date), h('label', { class: 'mn-date' }, h('span', { class: 'tiny muted' }, '갚기로 한 날'), due), memo, h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '적기'))));
+  const toggle = h('button', { class: 'btn btn-ghost btn-sm', 'aria-expanded': 'false', onclick: () => {
+    const open = form.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.replaceChildren(icon(open ? 'x' : 'plus', 14), open ? '닫기' : '적기');
+    if (open) setTimeout(() => who.focus({ preventScroll: true }), 250);
+  } }, icon('plus', 14), '적기');
   return h('section', { class: 'glass card col' },
-    h('h2', { class: 'h2' }, '빌린 돈 · 빌려준 돈'),
-    h('div', { class: 'mn-debt-form' }, typeSeg, h('div', { class: 'mn-debt-inputs' }, who, amount, h('label', { class: 'mn-date' }, h('span', { class: 'tiny muted' }, '날짜'), date), h('label', { class: 'mn-date' }, h('span', { class: 'tiny muted' }, '갚기로 한 날'), due), memo, h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '적기'))),
+    h('div', { class: 'row between' }, h('h2', { class: 'h2' }, '빌린 돈 · 빌려준 돈'), toggle),
+    form,
     h('div', { class: 'mn-debt-cols' },
       col('borrow', '내가 갚을 돈', '빌린 돈이 없어요.'),
       col('lend', '내가 받을 돈', '빌려준 돈이 없어요.')));

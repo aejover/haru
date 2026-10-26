@@ -75,7 +75,8 @@ export default {
     const mail = h('div');
     async function loadMail(interactive) {
       if (!googleConfigured()) {
-        mail.replaceChildren(h('a', { class: 'mail-strip glass', href: '#settings', style: { textDecoration: 'none' } }, icon('mail', 20), h('span', { class: 'grow small muted' }, 'Gmail을 연동하면 새 메일이 여기에 떠요'), icon('right', 16)));
+        // not set up: keep the home screen clean (Gmail can be connected from 설정)
+        mail.replaceChildren();
         return;
       }
       if (!googleLinked()) {
@@ -256,7 +257,7 @@ export default {
     // 할 일 ⇄ 캘린더 card keeps its own sideways swipe
     let pdrag = null;
     pager.addEventListener('pointerdown', e => {
-      if (e.button > 0 || e.target.closest('input, select, textarea, [contenteditable], .swipe, .cal-cell')) return;
+      if (e.button > 0 || e.target.closest('input, select, textarea, [contenteditable], .swipe, .cal-cell, .popo-holder')) return;
       pdrag = { x: e.clientX, y: e.clientY, t: Date.now(), on: false, dead: false };
     });
     const pmove = e => {

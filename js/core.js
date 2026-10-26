@@ -246,13 +246,12 @@ export function icon(name, size = 20, sw = 1.7) {
 }
 export const iconHTML = (name, size = 20, sw = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
-// Claude's little companion: a square, blocky creature with side arms, four short legs and blinking eyes.
 // 포포's face (also the Claude button, in black & white): the otter plush — wide, flat head, small side ears,
 // big muzzle, closed smiling eyes, whiskers — drawn flat with no outlines like the rest of 하루. 64×64 grid.
-const OTTER_FACE = ''
-  + '<circle class="ear" cx="11.5" cy="25" r="4.6"/><circle class="ear" cx="52.5" cy="25" r="4.6"/>'
-  + '<circle class="ear paper" cx="11.5" cy="25" r="2.4"/><circle class="ear paper" cx="52.5" cy="25" r="2.4"/>'
-  + '<path class="head" d="M32 18.5c15.4 0 26 6.8 26 16.8S47.4 51.5 32 51.5 6 45.3 6 35.3 16.6 18.5 32 18.5z"/>'
+const OTTER_EARS = '<circle class="ear" cx="11.5" cy="25" r="4.6"/><circle class="ear" cx="52.5" cy="25" r="4.6"/>'
+  + '<circle class="ear paper" cx="11.5" cy="25" r="2.4"/><circle class="ear paper" cx="52.5" cy="25" r="2.4"/>';
+const OTTER_HEAD = '<path class="head" d="M32 18.5c15.4 0 26 6.8 26 16.8S47.4 51.5 32 51.5 6 45.3 6 35.3 16.6 18.5 32 18.5z"/>';
+const OTTER_FEATURES = ''
   + '<path class="paper" d="M32 32.4c10.2 0 18 3.8 18 9.2 0 5.5-7.8 9.2-18 9.2s-18-3.7-18-9.2c0-5.4 7.8-9.2 18-9.2z"/>'
   + '<path class="eye" d="M17.4 29.2q4.1-4 8.2 0M38.4 29.2q4.1-4 8.2 0"/>'
   + '<ellipse class="nose" cx="32" cy="36.6" rx="3.8" ry="2.8"/>'
@@ -260,19 +259,21 @@ const OTTER_FACE = ''
   + '<path class="line thin" d="M16.4 40.2l5.6.9M16.2 43.4h5.8M16.9 46.6l5.2-1.1M47.6 40.2l-5.6.9M47.8 43.4h-5.8M47.1 46.6l-5.2-1.1"/>'
   + '<ellipse class="blush" cx="19" cy="35.4" rx="3.3" ry="1.9"/><ellipse class="blush" cx="45" cy="35.4" rx="3.3" ry="1.9"/>';
 export function clawdSVG(size = 44) {
-  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_FACE}</g></svg>`;
+  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_EARS}${OTTER_HEAD}${OTTER_FEATURES}</g></svg>`;
 }
-// 포포: the same otter with its whole body — a round, extra-chubby belly (no folds) and stubby arms.
+// 포포: like the plush, no neck — one round, egg-shaped body with the face on its top half, a big round belly
+// (no folds), stubby arms and two little feet.
 export function popoSVG() {
   return '<svg class="popo" viewBox="0 0 200 250" aria-hidden="true">'
-    + '<ellipse class="popo-shadow" cx="100" cy="243" rx="70" ry="6"/>'
+    + '<ellipse class="popo-shadow" cx="100" cy="244" rx="74" ry="6"/>'
     + '<g class="popo-all">'
-    + '<g class="popo-feet"><ellipse cx="70" cy="233" rx="17" ry="8.5"/><ellipse cx="130" cy="233" rx="17" ry="8.5"/></g>'
-    + '<path class="popo-body" d="M100 72c26 0 42 14 48 36 18 13 30 36 30 63 0 40-35 64-78 64s-78-24-78-64c0-27 12-50 30-63 6-22 22-36 48-36z"/>'
-    + '<circle class="popo-belly" cx="100" cy="172" r="56"/>'
-    + '<g class="popo-arm l"><path d="M50 116c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
-    + '<g class="popo-arm r"><path d="M150 116c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
-    + `<g class="popo-head"><g transform="translate(22 -22) scale(2.44)">${OTTER_FACE}</g></g>`
+    + '<g class="popo-feet"><ellipse cx="68" cy="234" rx="18" ry="8.5"/><ellipse cx="132" cy="234" rx="18" ry="8.5"/></g>'
+    + '<g transform="translate(22 -6) scale(2.45)">' + OTTER_EARS + '</g>'
+    + '<path class="popo-body" d="M100 36c50 0 82 46 84 102 2 58-32 100-84 100S14 196 16 138C18 82 50 36 100 36z"/>'
+    + '<circle class="popo-belly" cx="100" cy="170" r="62"/>'
+    + '<g class="popo-arm l"><path d="M36 134c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
+    + '<g class="popo-arm r"><path d="M164 134c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
+    + '<g class="popo-head"><g transform="translate(29.6 4) scale(2.2)">' + OTTER_FEATURES + '</g></g>'
     + '</g></svg>';
 }
 
