@@ -1,7 +1,7 @@
-﻿// memo.js — 메모장: text, voice recording (live transcription + Claude summary), links, images, files,
+// memo.js — 메모장: text, voice recording (live transcription + Claude summary), links, images, files,
 // and a pen layer for doodling over a saved memo.
 import {
-  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl, download,
+  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl, download, htmlOf,
 } from '../core.js';
 import { memoBlocks } from './memo-blocks.js';
 import { openViewer } from '../viewer.js';
@@ -89,7 +89,9 @@ export default {
       const touch = debounce(() => { m.updatedAt = Date.now(); commit('memos'); paintList(); }, 600);
       const title = h('input', { class: 'input bare memo-title', placeholder: '제목', value: m.title, 'aria-label': '메모 제목', oninput: () => { m.title = title.value; touch(); } });
       const body = h('div', { class: 'memo-body', contenteditable: 'true', 'data-placeholder': '여기에 메모를 적으세요…', role: 'textbox', 'aria-multiline': 'true', 'aria-label': '메모 내용', html: m.html });
-      body.addEventListener('input', () => { m.html = body.innerHTML; touch(); });
+      body.addEventListener('input', () => { m.html = htmlOf(body); touch(); });
+      // pictures put inline with the + button open in the zoom viewer
+      body.addEventListener('click', e => { const img = e.target.closest('img.mimg'); if (img && body.contains(img)) openViewer(img.src, { alt: img.alt || '' }); });
       // clean memos pasted before the fix: drop leftover colors/backgrounds/fonts, keep size & weight
       let tidied = false;
       body.querySelectorAll('[style],[color],[bgcolor],[face]').forEach(x => {
@@ -101,16 +103,16 @@ export default {
         if (fw) x.style.fontWeight = fw;
         if ((x.getAttribute('style') || '') !== before) tidied = true;
       });
-      if (tidied) { m.html = body.innerHTML; commit('memos'); }
+      if (tidied) { m.html = htmlOf(body); commit('memos'); }
       if (m.fs) body.style.fontSize = m.fs;
       if (m.fw) body.style.fontWeight = m.fw;
       body.addEventListener('paste', e => {
         const img = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
         if (img) { e.preventDefault(); addFiles([img], 'image'); return; }
         const html = e.clipboardData?.getData('text/html');
-        if (html) { e.preventDefault(); document.execCommand('insertHTML', false, cleanPaste(html)); m.html = body.innerHTML; touch(); }
+        if (html) { e.preventDefault(); document.execCommand('insertHTML', false, cleanPaste(html)); m.html = htmlOf(body); touch(); }
       });
-      const fmt = (cmd, val) => { body.focus(); document.execCommand(cmd, false, val); m.html = body.innerHTML; touch(); };
+      const fmt = (cmd, val) => { body.focus(); document.execCommand(cmd, false, val); m.html = htmlOf(body); touch(); };
       // text size / weight: selected text only, or the whole memo when nothing is selected
       let range = null;
       const keepRange = () => { const sel = getSelection(); if (sel.rangeCount && body.contains(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange(); };
@@ -132,18 +134,18 @@ export default {
         r.insertNode(sp);
         const sel = getSelection(); const again = document.createRange(); again.selectNodeContents(sp); sel.removeAllRanges(); sel.addRange(again);
         range = again.cloneRange();
-        m.html = body.innerHTML; touch();
+        m.html = htmlOf(body); touch();
       }
       const sizeSel = h('select', { class: 'tb-select', 'aria-label': '글자 크기', title: '글자 크기', onchange: e => { styleText('fontSize', e.target.value, SIZES.find(x => x[0] === e.target.value)[1]); e.target.value = ''; } }, SIZES.map(([v, l]) => h('option', { value: v }, l)));
       const weightSel = h('select', { class: 'tb-select', 'aria-label': '글자 두께', title: '글자 두께', onchange: e => { styleText('fontWeight', e.target.value, WEIGHTS.find(x => x[0] === e.target.value)[1]); e.target.value = ''; } }, WEIGHTS.map(([v, l]) => h('option', { value: v }, l)));
       prevCleanup?.();
-      const blocks = memoBlocks(body, () => { m.html = body.innerHTML; touch(); });
+      const blocks = memoBlocks(body, () => { m.html = htmlOf(body); touch(); });
       destroyBlocks = () => { blocks.destroy(); document.removeEventListener('selectionchange', keepRange); };
 
       const attBox = h('div', { class: 'attach-list' });
       const imgGrid = h('div', { class: 'img-grid' });
       const ink = h('div', { class: 'ink-layer' }, m.drawing ? h('img', { src: m.drawing, alt: '' }) : null);
-      const wrap = h('div', { class: 'memo-canvas-wrap' }, body, imgGrid, attBox, ink);
+      const wrap = h('div', { class: 'memo-canvas-wrap' }, body, imgGrid, attBox, ink, blocks.plus);
       const recBox = h('div');
 
       const saveBtn = h('button', { class: 'btn btn-ink btn-sm', onclick: save }, icon('check', 15), m.saved ? '저장됨' : '저장');
@@ -169,7 +171,7 @@ export default {
         tools, recBox, blocks.tableBar, wrap);
 
       function save() {
-        m.html = body.innerHTML; m.updatedAt = Date.now();
+        m.html = htmlOf(body); m.updatedAt = Date.now();
         if (!m.title.trim()) { m.title = plain(m.html).slice(0, 30) || '제목 없음'; title.value = m.title; }
         const first = !m.saved; m.saved = true;
         commit('memos'); paintList();
@@ -197,7 +199,7 @@ export default {
             audioEl(a.url),
             a.transcript ? h('div', { class: 'transcript' }, a.transcript) : h('div', { class: 'tiny muted' }, SR ? '받아쓴 내용이 없어요.' : '이 브라우저는 받아쓰기를 지원하지 않아요. Chrome이나 Edge에서 녹음하면 자동으로 텍스트가 돼요.'),
             h('div', { class: 'row wrap' },
-              a.transcript ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { body.focus(); document.execCommand('insertText', false, '\n' + a.transcript); m.html = body.innerHTML; touch(); } }, icon('text', 14), '본문에 넣기') : null,
+              a.transcript ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { body.focus(); document.execCommand('insertText', false, '\n' + a.transcript); m.html = htmlOf(body); touch(); } }, icon('text', 14), '본문에 넣기') : null,
               a.transcript ? sumBtn : null),
             a.summary ? h('div', { class: 'summary' }, a.summary) : null);
         }));

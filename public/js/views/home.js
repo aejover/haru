@@ -1,4 +1,5 @@
-// home.js — first screen: clock, weather, mail, motto, time-progress, today's tasks ⇄ calendar.
+// home.js — first screen: clock, weather, mail, motto, today's tasks ⇄ calendar, unfinished to-dos and
+// time-progress; swipe right for 포포.
 import {
   h, icon, store, commit, bus, dkey, addDays, fromKey, fmtDay, pad, WEEK, monthKey, toast, seg, checkEl,
   tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify,
@@ -6,6 +7,7 @@ import {
 import { getWeather } from '../weather.js';
 import { editTask, editEvent } from './edit-item.js';
 import { googleConfigured, googleLinked, googleSignIn, gmailSummary } from '../google.js';
+import { popoPage } from './popo.js';
 
 export function taskRow(t, k, { onChange, hideGoal } = {}) {
   const done = isDone(t, k);
@@ -45,8 +47,8 @@ export function miniMonth(ym, { onPick, selected, big = false } = {}) {
 
 export default {
   id: 'home', title: '홈', icon: 'home',
-  render(el, ctx) {
-    el.classList.add('home', 'stagger');
+  render(el, ctx, arg) {
+    el.classList.add('home');
     const s = store.s;
 
     // ----- clock & weather -----
@@ -227,9 +229,69 @@ export default {
     ctx.on('change', w => { if (['tasks', 'events'].includes(w)) { paintTasks(); paintCal(); } if (w === 'profile' && document.activeElement !== motto) motto.textContent = s.profile.motivation || ''; });
     ctx.on('newday', () => { paintTasks(); paintCal(); });
 
-    el.append(
+    // two pages side by side: the usual home, and 포포 one swipe to the right
+    const main = h('div', { class: 'home-main stagger' },
       h('section', { class: 'hero' }, clock, dateEl, weather),
-      mail, mottoBox, progress, swipeCard, pendingCard);
+      mail, mottoBox, swipeCard, pendingCard, progress);
+    const popo = popoPage(ctx);
+    const track = h('div', { class: 'home-track' }, main, popo.page);
+    const pager = h('div', { class: 'home-pager' }, track);
+    const pageDots = h('div', { class: 'home-dots', role: 'tablist', 'aria-label': '홈 화면' },
+      [['홈', 0], ['포포', 1]].map(([label, i]) => h('button', { class: i === 0 ? 'on' : '', role: 'tab', 'aria-label': label, title: label, onclick: () => showPage(i) })));
+    let curPage = 0;
+    // as tall as the page you're on, so 포포's page doesn't leave the home page's length below it
+    const fitHeight = () => { pager.style.height = curPage === 1 && popo.page.offsetHeight ? popo.page.offsetHeight + 'px' : ''; };
+    const ro = new ResizeObserver(fitHeight);
+    ro.observe(popo.page);
+    ctx.cleanup(() => ro.disconnect());
+    function showPage(i) {
+      curPage = Math.max(0, Math.min(1, i));
+      track.style.transform = `translateX(${-curPage * 100}%)`;
+      [...pageDots.children].forEach((d, j) => d.classList.toggle('on', curPage === j));
+      fitHeight();
+      main.inert = curPage === 1; popo.page.inert = curPage === 0;
+      if (curPage === 1) { popo.refresh(); document.getElementById('view').scrollTo({ top: 0, behavior: 'smooth' }); }
+    }
+    // swipe (finger or mouse) between the pages; up-and-down scrolling stays native, and the
+    // 할 일 ⇄ 캘린더 card keeps its own sideways swipe
+    let pdrag = null;
+    pager.addEventListener('pointerdown', e => {
+      if (e.button > 0 || e.target.closest('input, select, textarea, [contenteditable], .swipe, .cal-cell')) return;
+      pdrag = { x: e.clientX, y: e.clientY, t: Date.now(), on: false, dead: false };
+    });
+    const pmove = e => {
+      if (!pdrag || pdrag.dead) return;
+      const dx = e.clientX - pdrag.x, dy = e.clientY - pdrag.y;
+      if (!pdrag.on) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { pdrag.dead = true; return; } // scrolling up or down
+        if (Math.abs(dx) < 10) return;
+        pdrag.on = true; track.classList.add('dragging'); getSelection().removeAllRanges();
+      }
+      // resist past the first and last page
+      const edge = (curPage === 0 && dx > 0) || (curPage === 1 && dx < 0);
+      track.style.transform = `translateX(calc(${-curPage * 100}% + ${edge ? dx / 3 : dx}px))`;
+    };
+    const pend = e => {
+      if (!pdrag) return;
+      const d = pdrag; pdrag = null;
+      if (!d.on) return;
+      track.classList.remove('dragging');
+      const dx = e.clientX - d.x, fast = Math.abs(dx) / Math.max(1, Date.now() - d.t) > 0.5;
+      showPage(Math.abs(dx) > pager.clientWidth * 0.18 || fast ? curPage + (dx < 0 ? 1 : -1) : curPage);
+      // the swipe shouldn't also count as a tap on whatever it started on
+      const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
+      pager.addEventListener('click', stop, { capture: true, once: true });
+      setTimeout(() => pager.removeEventListener('click', stop, { capture: true }), 50);
+    };
+    window.addEventListener('pointermove', pmove); window.addEventListener('pointerup', pend); window.addEventListener('pointercancel', pend);
+    ctx.cleanup(() => { window.removeEventListener('pointermove', pmove); window.removeEventListener('pointerup', pend); window.removeEventListener('pointercancel', pend); });
+    popo.page.inert = true;
+
+    el.append(pager);
+    // the dots live on <body>: the page itself is transformed by its entrance animation, which would pin them to the page
+    document.body.append(pageDots);
+    ctx.cleanup(() => pageDots.remove());
+    if (arg === 'popo') { track.style.transition = 'none'; showPage(1); requestAnimationFrame(() => { track.style.transition = ''; }); }
     bus.emit('home-ready');
   },
 };

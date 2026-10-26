@@ -1,5 +1,7 @@
-// memo-blocks.js — 메모장 블록: 표, 구분선, 토글 (접고 펼치는 블록).
-import { h, icon, modal } from '../core.js';
+// memo-blocks.js — 메모장 블록: 표, 구분선, 토글 (접고 펼치는 블록), 그리고 줄 왼쪽의 + 버튼(이미지·표·파일 바로 넣기).
+import { h, icon, modal, upload, pickFiles, toast, fmtSize } from '../core.js';
+
+const escHTML = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const cellAt = (body, node) => { for (let n = node; n && n !== body; n = n.parentNode) if (n.tagName === 'TD' || n.tagName === 'TH') return n; return null; };
 const inside = (body, node, cls) => { for (let n = node; n && n !== body; n = n.parentNode) if (n.classList?.contains(cls)) return n; return null; };
@@ -160,13 +162,71 @@ export function memoBlocks(body, onChange) {
   tableBar.append(h('b', { class: 'small', style: { margin: '0 6px' } }, '표'), btn('아래에 줄 추가', 'row', 'rowAdd'), btn('오른쪽에 칸 추가', 'col', 'colAdd'), btn('줄 삭제', 'delRow'), btn('칸 삭제', 'delCol'), h('span', { class: 'spacer' }), btn('표 삭제', 'delTable', 'trash'));
   function paintTableBar() { const s = getSelection(); tableBar.hidden = !(s.rangeCount && cellAt(body, s.anchorNode)); }
 
+  // ----- the faint + at the left of the line you're writing on -----
+  const plus = h('button', { class: 'memo-plus', type: 'button', hidden: true, 'aria-label': '이미지 · 표 · 파일 넣기', title: '이미지 · 표 · 파일 넣기', onmousedown: e => e.preventDefault(), onclick: () => toggleMenu() }, icon('plus', 15));
+  const menu = h('div', { class: 'memo-plus-menu glass', hidden: true, role: 'menu' },
+    [['image', '이미지', insertImages], ['table', '표', () => insertTable(3, 3)], ['clip', '파일', insertFiles]].map(([ic, label, run]) =>
+      h('button', { type: 'button', role: 'menuitem', onmousedown: e => e.preventDefault(), onclick: () => { toggleMenu(false); run(); } }, icon(ic, 16), label)));
+  const lineOf = node => { // the top-level line (block) of the memo that holds this node
+    if (!node || node === body) return null;
+    let n = node; while (n.parentNode && n.parentNode !== body) n = n.parentNode;
+    return n.parentNode === body ? n : null;
+  };
+  function placePlus() {
+    const s = getSelection();
+    const inBody = document.activeElement === body && s.rangeCount && body.contains(s.anchorNode);
+    if (!inBody) { if (menu.hidden) plus.hidden = true; return; }
+    const host = plus.parentNode; if (!host) return;
+    const line = lineOf(s.anchorNode);
+    let rect = line?.nodeType === 1 ? line.getBoundingClientRect() : null;
+    if (!rect || !rect.height) { const r = s.getRangeAt(0).getClientRects()[0]; rect = r || body.getBoundingClientRect(); }
+    const lh = parseFloat(getComputedStyle(body).lineHeight) || 28;
+    plus.style.top = `${rect.top - host.getBoundingClientRect().top + Math.min(rect.height || lh, lh) / 2 - 12}px`;
+    plus.hidden = false;
+    if (!menu.hidden) menu.style.top = `${parseFloat(plus.style.top) + 28}px`;
+  }
+  function toggleMenu(open = menu.hidden) {
+    menu.hidden = !open;
+    plus.classList.toggle('open', open);
+    if (open) { menu.style.top = `${parseFloat(plus.style.top) + 28}px`; restore(); }
+  }
+  document.addEventListener('selectionchange', placePlus);
+  body.addEventListener('focus', placePlus);
+  body.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== body && menu.hidden) plus.hidden = true; }, 150));
+  const onDocDown = e => { if (!menu.hidden && !menu.contains(e.target) && e.target !== plus && !plus.contains(e.target)) toggleMenu(false); };
+  const onKey = e => { if (e.key === 'Escape' && !menu.hidden) toggleMenu(false); };
+  document.addEventListener('pointerdown', onDocDown);
+  document.addEventListener('keydown', onKey);
+  async function insertImages() {
+    const files = await pickFiles({ accept: 'image/*', multiple: true });
+    for (const f of files) {
+      try { const up = await upload(f); insertHTML(`<img class="mimg" src="${escHTML(up.url)}" alt="${escHTML(f.name)}"><div><br></div>`); }
+      catch (e) { toast(e.message); }
+    }
+  }
+  async function insertFiles() {
+    const files = await pickFiles({ multiple: true });
+    for (const f of files) {
+      try {
+        const up = await upload(f);
+        insertHTML(`<a class="mfile" contenteditable="false" href="${escHTML(up.url)}" download="${escHTML(f.name)}">${escHTML(f.name)} <small>${fmtSize(f.size)}</small></a>&nbsp;`);
+      } catch (e) { toast(e.message); }
+    }
+  }
+
   return {
     tableBar,
+    plus: [plus, menu],
     tools: [
       h('button', { class: 'tb', title: '표', onmousedown: e => e.preventDefault(), onclick: tablePicker }, icon('table', 16), h('span', { class: 'lb' }, '표')),
       h('button', { class: 'tb', title: '구분선', onmousedown: e => e.preventDefault(), onclick: divider }, icon('hr', 16), h('span', { class: 'lb' }, '구분선')),
       h('button', { class: 'tb', title: '토글 (접고 펼치는 블록)', onmousedown: e => e.preventDefault(), onclick: toggle }, icon('down', 16), h('span', { class: 'lb' }, '토글')),
     ],
-    destroy: () => document.removeEventListener('selectionchange', onSel),
+    destroy: () => {
+      document.removeEventListener('selectionchange', onSel);
+      document.removeEventListener('selectionchange', placePlus);
+      document.removeEventListener('pointerdown', onDocDown);
+      document.removeEventListener('keydown', onKey);
+    },
   };
 }

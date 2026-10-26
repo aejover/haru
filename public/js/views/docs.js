@@ -1,5 +1,6 @@
-﻿// docs.js — 문서 작업: 워드 · 한글 · 엑셀 · PPT. 일반 모드(직접 편집)와 AI 모드(Claude에게 말하면 문서에 반영).
-import { h, icon, store, commit, uid, toast, seg, confirmDialog, gainXP, ai, jsonOf, aiFail, fileToBlock, pickFiles, debounce } from '../core.js';
+﻿// docs.js — 문서 작업: 워드 · 한글 · 엑셀 · PPT, 계산기. 일반 모드(직접 편집)와 AI 모드(Claude에게 말하면 문서에 반영).
+import { h, icon, store, commit, uid, toast, seg, confirmDialog, gainXP, ai, jsonOf, aiFail, fileToBlock, pickFiles, debounce, modal } from '../core.js';
+import { calculator } from '../docs/calc.js';
 import { mountWord } from '../docs/word.js';
 import { mountSheet } from '../docs/sheet.js';
 import { mountSlides } from '../docs/slides.js';
@@ -34,14 +35,24 @@ function listView(el) {
       h('div', { class: 'row', style: { marginTop: 'auto', gap: '6px' } },
         h('button', { class: 'btn btn-ink btn-sm grow', onclick: () => newDoc(k, false) }, '새로 만들기'),
         h('button', { class: 'btn btn-ghost btn-sm', title: 'Claude와 함께 쓰기', onclick: () => newDoc(k, true) }, icon('sparkle', 14), 'AI'))))),
-    h('section', { class: 'glass card col' },
+    h('div', { class: 'doc-lower' },
+      h('section', { class: 'glass card col' },
+        h('div', { class: 'row between' }, h('h2', { class: 'h2' }, '계산기'), h('span', { class: 'tiny muted' }, '키보드로도 입력돼요')),
+        calculator()),
+      h('section', { class: 'glass card col' },
       h('h2', { class: 'h2' }, '최근 문서'),
       docs.length ? h('div', null, docs.map(d => h('div', { class: 'row' },
         h('button', { class: 'doc-list-item', onclick: () => { location.hash = `docs/${d.id}`; } },
           h('span', { class: 'badge' }, KINDS[d.kind].badge),
           h('span', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'ell', style: { fontWeight: 600 } }, d.title), h('div', { class: 'tiny muted' }, `${KINDS[d.kind].label} · ${timeAgo(d.updatedAt)}`))),
         h('button', { class: 'btn-icon sm', 'aria-label': '문서 삭제', onclick: async () => { if (await confirmDialog(`"${d.title}"을(를) 삭제할까요?`, { ok: '삭제', danger: true })) { store.s.docs = store.s.docs.filter(x => x !== d); commit('docs'); el.replaceChildren(); listView(el); } } }, icon('trash', 16)))))
-        : h('div', { class: 'empty' }, icon('doc', 32), '아직 문서가 없어요. 위에서 종류를 골라 시작하세요.')));
+        : h('div', { class: 'empty' }, icon('doc', 32), '아직 문서가 없어요. 위에서 종류를 골라 시작하세요.'))));
+}
+// the same calculator while writing, in a window over the document
+function openCalc() {
+  const c = calculator();
+  modal({ title: '계산기', body: c });
+  setTimeout(() => c.focus(), 120);
 }
 
 // ---------- AI panel ----------
@@ -122,6 +133,7 @@ function editorView(el, ctx, doc) {
       h('a', { class: 'btn-icon glass-btn', href: '#docs', 'aria-label': '문서 목록' }, icon('left')),
       h('span', { class: 'chip ink sm' }, kind.label), title, status,
       seg([['normal', '일반'], ['ai', 'AI']], doc.ai ? 'ai' : 'normal', v => setAI(v === 'ai')),
+      h('button', { class: 'btn btn-ghost btn-sm', title: '계산기', onclick: openCalc }, icon('calc', 15), '계산기'),
       exportBtn),
     split);
   if (doc.ai) setAI(true);

@@ -26,6 +26,7 @@ if (LOCAL) {
     for (const a of ['src', 'href']) {
       const v = el.getAttribute?.(a); if (!v || !/^\/files\//.test(v)) continue;
       const id = decodeURIComponent(v.slice(7));
+      el.setAttribute('data-file', v); // the real address, for htmlOf() when this sits inside saved HTML
       const hit = local.cachedFileURL(id);
       if (hit) { el.setAttribute(a, hit); continue; }
       local.fileURL(id).then(u => { if (u && el.getAttribute(a) === v) el.setAttribute(a, u); });
@@ -42,13 +43,22 @@ if (API_BASE) {
   const nativeFetch = window.fetch.bind(window);
   window.fetch = (input, init) => nativeFetch(typeof input === 'string' ? apiUrl(input) : input, init);
   // photos, recordings and files are saved as "/files/…" and live on the computer
-  const fix = el => { for (const a of ['src', 'href']) { const v = el.getAttribute?.(a); if (v && /^\/files\//.test(v)) el.setAttribute(a, API_BASE + v); } };
+  const fix = el => { for (const a of ['src', 'href']) { const v = el.getAttribute?.(a); if (v && /^\/files\//.test(v)) { el.setAttribute('data-file', v); el.setAttribute(a, API_BASE + v); } } };
   new MutationObserver(list => {
     for (const m of list) {
       if (m.type === 'attributes') fix(m.target);
       else m.addedNodes.forEach(n => { if (n.nodeType === 1) { fix(n); n.querySelectorAll?.('[src^="/files/"],[href^="/files/"]').forEach(fix); } });
     }
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'href'] });
+}
+
+// HTML of an editable area as it should be saved: pictures and files keep their "/files/…" address, not the
+// temporary one the page swapped in to show them (blob: in the web version, the computer's address when connected)
+export function htmlOf(el) {
+  if (!el.querySelector('[data-file]')) return el.innerHTML;
+  const copy = el.cloneNode(true);
+  copy.querySelectorAll('[data-file]').forEach(n => { const v = n.getAttribute('data-file'); n.setAttribute(n.hasAttribute('src') ? 'src' : 'href', v); n.removeAttribute('data-file'); });
+  return copy.innerHTML;
 }
 
 // ---------- DOM ----------
@@ -131,6 +141,7 @@ const P = {
   chart: '<path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/>',
   wallet: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M20.5 12h-4a1.8 1.8 0 0 0 0 3.6h4"/>',
   routine: '<path d="M18.5 8.5A7.5 7.5 0 1 0 19.5 12"/><path d="M19.5 4.5v4h-4M9 12.2l2 2 4-4.2"/>',
+  calc: '<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M8.5 7.5h7M8.5 12h1M12 12h0M15.5 12h0M8.5 15.5h0M12 15.5h0M15.5 15.5h0" stroke-width="2.2"/>',
   qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M17 17h3v3h-3z"/>',
   sync: '<path d="M19.5 9A7.5 7.5 0 0 0 6.2 6.6L4.5 8.3M4.5 4.5v3.8h3.8M4.5 15a7.5 7.5 0 0 0 13.3 2.4l1.7-1.7M19.5 19.5v-3.8h-3.8"/>',
   wind: '<path d="M3.5 9.5h11a2.8 2.8 0 1 0-2.8-2.8M3.5 14.5h14a2.8 2.8 0 1 1-2.8 2.8M3.5 12h8"/>',
@@ -236,14 +247,33 @@ export function icon(name, size = 20, sw = 1.7) {
 export const iconHTML = (name, size = 20, sw = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
 // Claude's little companion: a square, blocky creature with side arms, four short legs and blinking eyes.
+// Claude's face: the otter plush — wide flat head, small side ears, big cream muzzle, closed smiling eyes,
+// whiskers — drawn flat with no outlines like the rest of 하루. Drawn on a 64×64 grid.
+const OTTER_FACE = ''
+  + '<circle class="ear" cx="13.5" cy="21.5" r="5"/><circle class="ear" cx="50.5" cy="21.5" r="5"/>'
+  + '<circle class="ear paper" cx="13.5" cy="21.5" r="2.7"/><circle class="ear paper" cx="50.5" cy="21.5" r="2.7"/>'
+  + '<path class="head" d="M32 14.5c14.8 0 24.5 7.4 24.5 19S46.8 53.5 32 53.5 7.5 45.1 7.5 33.5 17.2 14.5 32 14.5z"/>'
+  + '<path class="paper" d="M32 29c9.8 0 17.4 4.5 17.4 10.8 0 6.6-7.2 11.2-17.4 11.2s-17.4-4.6-17.4-11.2C14.6 33.5 22.2 29 32 29z"/>'
+  + '<path class="eye" d="M17.8 25.6q4.1-4.3 8.2 0M38 25.6q4.1-4.3 8.2 0"/>'
+  + '<ellipse class="nose" cx="32" cy="35" rx="3.9" ry="3"/>'
+  + '<path class="line" d="M32 37.6V43.4M24.2 40.4Q32 48.8 39.8 40.4"/>'
+  + '<path class="line thin" d="M17.4 38.4l5.4 1M17.2 41.8h5.6M17.9 45.3l5-1.2M46.6 38.4l-5.4 1M46.8 41.8h-5.6M46.1 45.3l-5-1.2"/>'
+  + '<ellipse class="blush" cx="19.5" cy="32.5" rx="3.3" ry="2"/><ellipse class="blush" cx="44.5" cy="32.5" rx="3.3" ry="2"/>';
 export function clawdSVG(size = 44) {
-  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">`
-    + `<g class="body">`
-    + `<rect x="12" y="12" width="40" height="30" rx="6"/>`
-    + `<rect class="arm l" x="5" y="23" width="8" height="8" rx="2.5"/><rect class="arm r" x="51" y="23" width="8" height="8" rx="2.5"/>`
-    + `<rect x="17" y="45" width="5" height="7" rx="2"/><rect x="26" y="45" width="5" height="7" rx="2"/><rect x="33" y="45" width="5" height="7" rx="2"/><rect x="42" y="45" width="5" height="7" rx="2"/>`
-    + `<rect class="eye" x="21" y="21" width="5" height="8" rx="2"/><rect class="eye" x="38" y="21" width="5" height="8" rx="2"/>`
-    + `</g></svg>`;
+  return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_FACE}</g></svg>`;
+}
+// 포포: the same otter with its whole body — a round, extra-chubby belly (no folds) and stubby arms.
+export function popoSVG() {
+  return '<svg class="popo" viewBox="0 0 200 250" aria-hidden="true">'
+    + '<ellipse class="popo-shadow" cx="100" cy="241" rx="62" ry="6"/>'
+    + '<g class="popo-all">'
+    + '<g class="popo-feet"><ellipse cx="72" cy="232" rx="17" ry="9"/><ellipse cx="128" cy="232" rx="17" ry="9"/></g>'
+    + '<path class="popo-body" d="M100 64c34 0 54 22 59 54 5 30 15 62 11 86-4 26-34 34-70 34s-66-8-70-34c-4-24 6-56 11-86 5-32 25-54 59-54z"/>'
+    + '<ellipse class="popo-belly" cx="100" cy="176" rx="54" ry="50"/>'
+    + '<g class="popo-arm l"><path d="M46 128c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
+    + '<g class="popo-arm r"><path d="M154 128c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
+    + `<g class="popo-head"><g transform="translate(22 -14) scale(2.44)">${OTTER_FACE}</g></g>`
+    + '</g></svg>';
 }
 
 // ---------- event bus ----------
