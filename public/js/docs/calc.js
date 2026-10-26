@@ -1,11 +1,12 @@
-// calc.js — 문서 작업의 계산기: 괄호 · % · √ · x² 를 쓰는 식 계산기. 키보드로도 쓰고, 지난 계산은 기록에 남아요.
+// calc.js — 문서 작업의 계산기: 괄호 · % · √ · 거듭제곱(xʸ)을 쓰는 식 계산기. 키보드로도 쓰고, 지난 계산은 기록에 남아요.
 import { h, icon, toast } from '../core.js';
 
 // ---------- a small expression parser (no eval) ----------
 // grammar: expr = term (('+'|'−') term)* ; term = unary (('×'|'÷') unary)* ;
-//          unary = '−' unary | '√' unary | post ; post = atom ('%' | '²')* ; atom = number | '(' expr ')'
+//          unary = '−' unary | '√' unary | power ; power = post ('^' unary)? ; post = atom '%'* ;
+//          atom = number | '(' expr ')'      (so −2^2 = −4, 2^−1 = 0.5, and 2^3^2 = 2^9)
 function evaluate(src) {
-  const s = src.replace(/\s+/g, '').replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/\^2/g, '²');
+  const s = src.replace(/\s+/g, '').replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
   let i = 0;
   const peek = () => s[i];
   const fail = () => { throw new Error('식을 확인해 주세요'); };
@@ -16,12 +17,20 @@ function evaluate(src) {
     i += m[0].length;
     return Number(m[0].replace('−', '-'));
   }
-  function post() { let v = atom(); for (;;) { if (peek() === '%') { i++; v /= 100; } else if (peek() === '²') { i++; v *= v; } else return v; } }
+  function post() { let v = atom(); while (peek() === '%') { i++; v /= 100; } return v; }
+  function power() {
+    const b = post();
+    if (peek() !== '^') return b;
+    i++;
+    const v = Math.pow(b, unary()); // right side may be −2 or another power
+    if (Number.isNaN(v)) throw new Error('음수의 분수 거듭제곱은 계산할 수 없어요');
+    return v;
+  }
   function unary() {
     if (peek() === '−') { i++; return -unary(); }
     if (peek() === '+') { i++; return unary(); }
     if (peek() === '√') { i++; const v = unary(); if (v < 0) throw new Error('음수의 제곱근은 계산할 수 없어요'); return Math.sqrt(v); }
-    return post();
+    return power();
   }
   function term() {
     let v = unary();
@@ -51,7 +60,7 @@ export function calculator() {
   function paint(err) {
     exprEl.textContent = expr || '0';
     const p = preview();
-    outEl.textContent = err || (p != null && /[+−×÷%²√(]/.test(expr) ? '= ' + show(p) : '');
+    outEl.textContent = err || (p != null && /[+−×÷%^√(]/.test(expr) ? '= ' + show(p) : '');
     outEl.classList.toggle('err', !!err);
     histEl.replaceChildren(history.length ? history.slice(0, 8).map(x => h('button', { class: 'calc-hist-item', title: '눌러서 결과 쓰기', onclick: () => { expr = String(x.v); justDone = true; paint(); } }, h('span', { class: 'muted' }, x.e + ' ='), h('b', { class: 'num' }, show(x.v)))) : h('span', { class: 'tiny muted' }, '계산한 기록이 여기에 남아요'));
   }
@@ -75,16 +84,17 @@ export function calculator() {
     }
     if (justDone && /[\d.(√]/.test(k)) expr = ''; // a new number after "=" starts over; an operator keeps the result
     justDone = false;
-    if (k === 'x²') k = '²';
-    if (isOp(k) && isOp(expr.slice(-1))) expr = expr.slice(0, -1); // 3+× → 3×
+    if (k === 'xʸ') { if (!expr || /[+−×÷^(]$/.test(expr)) return; k = '^'; } // needs a number to raise
+    // 3+× → 3×, but a minus after ^ × ÷ is a negative number (2^−1, 3×−2)
+    if ((isOp(k) || k === '^') && /[+−×÷^]$/.test(expr) && !(k === '−' && /[×÷^]$/.test(expr))) expr = expr.slice(0, -1);
     if (k === '.') { const last = /[\d.]*$/.exec(expr)[0]; if (last.includes('.')) return; if (!last) k = '0.'; }
     expr += k;
     paint();
   }
-  const KEYS = ['(', ')', '√', 'x²', 'AC', '⌫', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '±', '0', '.', '='];
+  const KEYS = ['(', ')', '√', 'xʸ', 'AC', '⌫', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '±', '0', '.', '='];
   const pad = h('div', { class: 'calc-pad' }, KEYS.map(k => h('button', {
     type: 'button', class: 'calc-key' + (k === '=' ? ' calc-eq' : isOp(k) || k === '%' ? ' op' : /^[\d.±]$/.test(k) ? ' num' : ' fn'),
-    'aria-label': { '⌫': '지우기', AC: '모두 지우기', '√': '제곱근', 'x²': '제곱', '±': '부호 바꾸기' }[k] || k,
+    'aria-label': { '⌫': '지우기', AC: '모두 지우기', '√': '제곱근', 'xʸ': '거듭제곱 (지수 입력)', '±': '부호 바꾸기' }[k] || k,
     onclick: () => press(k),
   }, k === '⌫' ? icon('left', 18) : k)));
   const box = h('div', { class: 'calc', tabindex: '0', 'aria-label': '계산기 (키보드로 입력할 수 있어요)' },
@@ -93,7 +103,7 @@ export function calculator() {
     pad, histEl);
   box.addEventListener('keydown', e => {
     if (e.target.closest('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-    const map = { Enter: '=', '=': '=', Backspace: '⌫', Escape: 'AC', Delete: 'AC', '*': '×', x: '×', '/': '÷', '-': '−', '+': '+', '%': '%', '(': '(', ')': ')', '.': '.', ',': '.', '^': 'x²' };
+    const map = { Enter: '=', '=': '=', Backspace: '⌫', Escape: 'AC', Delete: 'AC', '*': '×', x: '×', '/': '÷', '-': '−', '+': '+', '%': '%', '(': '(', ')': ')', '.': '.', ',': '.', '^': 'xʸ' };
     const k = /^\d$/.test(e.key) ? e.key : map[e.key];
     if (!k) return;
     e.preventDefault(); press(k);

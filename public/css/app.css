@@ -365,18 +365,23 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .claude-fab:active { transform: scale(.92); }
 .claude-fab.open { transform: rotate(-8deg) scale(.96); }
 .clawd { width: 44px; height: 44px; overflow: visible; }
-.clawd .body { fill: var(--otter); transform-origin: 50% 90%; animation: bob 3.2s var(--ease-io) infinite; }
-/* the otter face (shared by the Claude button and 포포), in the plush's own colors */
+/* the otter face, shared by the Claude button and 포포. Claude wears 하루's ink & paper (flips with the theme);
+   포포 keeps the plush's own colors. */
 :root { --otter: #C99A60; --otter-shade: #B5864F; --otter-light: #D8AE76; --otter-cream: #F8F0DC; --otter-ink: #3B2A21; }
-.clawd .paper, .popo .paper { fill: var(--otter-cream); }
-.clawd .nose, .popo .nose { fill: var(--otter-ink); }
-.clawd .eye, .popo .eye { fill: none; stroke: var(--otter-ink); stroke-width: 2.2; stroke-linecap: round; }
-.clawd .line, .popo .line { fill: none; stroke: var(--otter-ink); stroke-width: 1.6; stroke-linecap: round; }
+.clawd .body { fill: var(--fg); transform-origin: 50% 90%; animation: bob 3.2s var(--ease-io) infinite; }
+.clawd .paper { fill: var(--bg); }
+.clawd .nose { fill: var(--fg); }
+.clawd .eye { fill: none; stroke: var(--bg); stroke-width: 2.4; stroke-linecap: round; }
+.clawd .line { fill: none; stroke: var(--fg); stroke-width: 1.7; stroke-linecap: round; }
+.clawd .blush { display: none; }
+.popo .paper { fill: var(--otter-cream); }
+.popo .nose { fill: var(--otter-ink); }
+.popo .eye { fill: none; stroke: var(--otter-ink); stroke-width: 2.2; stroke-linecap: round; }
+.popo .line { fill: none; stroke: var(--otter-ink); stroke-width: 1.6; stroke-linecap: round; }
 .clawd .line.thin, .popo .line.thin { stroke-width: 1.1; }
-.clawd .blush, .popo .blush { fill: #F29BB0; opacity: 0; transition: opacity .4s; }
+.popo .blush { fill: #F29BB0; opacity: 0; transition: opacity .4s; }
 .clawd .ear, .popo .ear { transform-box: fill-box; transform-origin: 50% 100%; }
 .claude-fab:hover .clawd .ear { animation: earWiggle .5s var(--ease-io) infinite alternate; }
-.claude-fab:hover .clawd .blush { opacity: .55; }
 .claude-fab.thinking .clawd .body { animation: hop .7s var(--ease-io) infinite; }
 @keyframes earWiggle { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
 
