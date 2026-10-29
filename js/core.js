@@ -164,6 +164,7 @@ const P = {
   down: '<path d="m6 9.5 6 6 6-6"/>',
   up: '<path d="m6 14.5 6-6 6 6"/>',
   bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2.2 2.2 0 0 0 4 0"/>',
+  flag: '<path d="M5.5 21V4M5.5 4.5c3-1.6 5.6 1.4 8.6 0 1.6-.7 2.9-.9 4.4-.5v9c-1.5-.4-2.8-.2-4.4.5-3 1.4-5.6-1.6-8.6 0"/>',
   bellOff: '<path d="M8.5 5.6A6 6 0 0 1 18 11v5M6 10.5v6l-1.5 2H17M10 20.5a2.2 2.2 0 0 0 4 0M4 4l16 16"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
   moon: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/>',
@@ -261,19 +262,21 @@ const OTTER_FEATURES = ''
 export function clawdSVG(size = 44) {
   return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_EARS}${OTTER_HEAD}${OTTER_FEATURES}</g></svg>`;
 }
-// 포포: like the plush, no neck — one round, egg-shaped body with the face on its top half, a big round belly
-// (no folds), stubby arms and two little feet.
+// 포포: like the plush — a wide, flat head set straight onto a chubby round body (no neck, but the head and
+// body are two shapes, with a soft shadow under the chin), a big round belly with no folds, stubby arms and
+// two little feet. The head is the same face as the Claude button, just bigger.
 export function popoSVG() {
   return '<svg class="popo" viewBox="0 0 200 250" aria-hidden="true">'
-    + '<ellipse class="popo-shadow" cx="100" cy="244" rx="74" ry="6"/>'
+    + '<ellipse class="popo-shadow" cx="100" cy="244" rx="72" ry="6"/>'
     + '<g class="popo-all">'
-    + '<g class="popo-feet"><ellipse cx="68" cy="234" rx="18" ry="8.5"/><ellipse cx="132" cy="234" rx="18" ry="8.5"/></g>'
-    + '<g transform="translate(22 -6) scale(2.45)">' + OTTER_EARS + '</g>'
-    + '<path class="popo-body" d="M100 36c50 0 82 46 84 102 2 58-32 100-84 100S14 196 16 138C18 82 50 36 100 36z"/>'
-    + '<circle class="popo-belly" cx="100" cy="170" r="62"/>'
-    + '<g class="popo-arm l"><path d="M36 134c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
-    + '<g class="popo-arm r"><path d="M164 134c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
-    + '<g class="popo-head"><g transform="translate(29.6 4) scale(2.2)">' + OTTER_FEATURES + '</g></g>'
+    + '<g class="popo-feet"><ellipse cx="70" cy="233" rx="19" ry="9"/><ellipse cx="130" cy="233" rx="19" ry="9"/></g>'
+    + '<path class="popo-body" d="M100 88c46 0 80 30 81 76 1 44-34 75-81 75S18 208 19 164c1-46 35-76 81-76z"/>'
+    + '<circle class="popo-belly" cx="100" cy="176" r="57"/>'
+    + '<ellipse class="popo-chin" cx="100" cy="114" rx="58" ry="10"/>'
+    + '<g class="popo-arm l"><path d="M34 146c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
+    + '<g class="popo-arm r"><path d="M166 146c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
+    + '<g class="popo-head"><g transform="translate(7.2 -31.65) scale(2.9)">' + OTTER_EARS + OTTER_HEAD + OTTER_FEATURES
+    + '<ellipse class="popo-mouth" cx="32" cy="45.2" rx="2.7" ry="2.3"/></g></g>'
     + '</g></svg>';
 }
 
@@ -396,7 +399,7 @@ function seed() {
     profile: { name: '', goal: '', birthYear: '', photo: '', roleModel: { name: '', note: '' }, motivation: '' },
     settings: {
       theme: 'system', city: null, ntfyTopic: '', ntfyServer: 'https://ntfy.sh', googleClientId: '',
-      nagInterval: 60, nagStart: 9, nagEnd: 22, briefHour: 8, eventLead: 30, sttAuto: true,
+      nagInterval: 60, nagStart: 9, nagEnd: 22, briefHour: 8, eventLead: 30, taskLead: 60, sttAuto: true,
     },
     pomoCfg: { focus: 25, short: 5, long: 30, auto: true, sound: true, mealV2: true },
     pomo: { mode: 'focus', running: false, endAt: 0, remain: 25 * 60, cycle: 0, lastTick: 0 },
@@ -406,6 +409,7 @@ function seed() {
       { id: uid(), title: '오늘 계획 세우기', kind: 'once', date: today, mode: 'normal', start: today, done: {}, example: true },
     ],
     events: [],
+    ddays: [],
     calImages: {},
     memos: [],
     diary: [],
@@ -451,6 +455,9 @@ export function applies(t, k) {
   return !t.days?.length || t.days.includes(fromKey(k).getDay());
 }
 export const tasksOn = k => store.s.tasks.filter(t => applies(t, k));
+// 디데이: days left to (D-3), on (D-DAY) or since (D+2) a date
+export const ddayN = date => Math.round((fromKey(date) - fromKey(dkey())) / 864e5);
+export const ddayLabel = date => { const n = ddayN(date); return n === 0 ? 'D-DAY' : n > 0 ? `D-${n}` : `D+${-n}`; };
 export const isDone = (t, k) => !!t.done?.[k];
 export function setDone(t, k, on) {
   t.done ||= {};
@@ -472,6 +479,8 @@ export function addTask(o) {
   if (o.days?.length) t.days = o.days;
   if (o.note) t.note = o.note;
   if (o.goalId) t.goalId = o.goalId;
+  if (o.cat?.trim()) t.cat = o.cat.trim();
+  if (o.remind != null && o.remind !== '') t.remind = Number(o.remind);
   store.s.tasks.push(t);
   gainXP('checklist');
   commit('tasks');
@@ -758,6 +767,29 @@ export function download(blob, filename) {
   const a = h('a', { href: URL.createObjectURL(blob), download: filename, style: { display: 'none' } });
   document.body.append(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+// iPhone and iPad (above all as a home-screen app) don't save files from a download link; their share sheet
+// has "이미지 저장" / "파일에 저장" instead. Everywhere else it's a normal download.
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export async function saveBlob(blob, filename) {
+  if (IOS && navigator.canShare) {
+    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+    if (navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; }
+      catch (e) { if (e.name === 'AbortError') return; } // closed the sheet: nothing to do
+    }
+  }
+  download(blob, filename);
+}
+// any picture on screen (a /files/… address, a blob: or a web address) saved under a sensible name
+export async function saveImage(src, name = '이미지') {
+  try {
+    const blob = await (await fetch(src)).blob();
+    if (!blob.size) throw new Error('empty');
+    const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/\+.*/, '');
+    const base = String(name).trim().replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60) || '이미지';
+    await saveBlob(blob, /\.\w{2,5}$/.test(base) ? base : `${base}.${ext}`);
+  } catch { toast('이미지를 내려받지 못했어요.'); }
 }
 const readAs = (blob, how) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr[how](blob); });
 export const toDataURL = blob => readAs(blob, 'readAsDataURL');

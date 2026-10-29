@@ -11,6 +11,25 @@ export function goalSelect(value = '') {
   return sel;
 }
 
+// 미리 알림: how long before a timed 할 일 to send a reminder. '' = the default from 설정 (1시간 전 out of the box)
+export const REMINDS = [[0, '정시'], [10, '10분 전'], [30, '30분 전'], [60, '1시간 전'], [120, '2시간 전'], [-1, '알림 없음']];
+export const remindLabel = m => REMINDS.find(r => r[0] === Number(m))?.[1] || `${m}분 전`;
+export function remindSelect(value) {
+  const def = store.s.settings.taskLead ?? 60;
+  return h('select', { class: 'select', 'aria-label': '미리 알림' },
+    h('option', { value: '', selected: value == null }, `기본 (${remindLabel(def)})`),
+    REMINDS.map(([v, l]) => h('option', { value: v, selected: value != null && Number(value) === v }, l)));
+}
+// 할 일 종류: typed freely (운동, 공부, 일, 개인…); left empty, the task is 공통
+export const CAT_EXAMPLES = ['운동', '공부', '일', '개인'];
+export const usedCats = () => [...new Set(store.s.tasks.map(t => t.cat).filter(Boolean))];
+export function catInput(value = '', placeholder = '예: 운동 · 비우면 공통') {
+  const id = 'cats-' + Math.random().toString(36).slice(2, 8);
+  const list = h('datalist', { id }, [...new Set([...usedCats(), ...CAT_EXAMPLES])].map(c => h('option', { value: c })));
+  const inp = h('input', { class: 'input', value, list: id, maxlength: 12, placeholder, 'aria-label': '할 일 종류' });
+  return [inp, list]; // put both in the form: the list offers the kinds already used
+}
+
 export function editEvent(ev, onDone) {
   const title = h('input', { class: 'input', value: ev.title });
   const date = h('input', { class: 'input', type: 'date', value: ev.date });
@@ -48,6 +67,8 @@ export function editTask(t, onDone) {
   const sync = () => { dateField.hidden = v.kind !== 'once'; daysField.hidden = v.kind !== 'daily'; };
   sync();
   const goal = goalSelect(t.goalId || '');
+  const [cat, catList] = catInput(t.cat || '');
+  const remind = remindSelect(t.remind);
   modal({
     title: t.kind === 'daily' ? '반복 할 일 수정' : '할 일 수정',
     body: h('div', { class: 'col' },
@@ -55,6 +76,7 @@ export function editTask(t, onDone) {
       h('div', { class: 'row wrap' }, seg([['once', '할 일 (한 번)'], ['daily', '매일 반복']], v.kind, k => { v.kind = k; sync(); }), seg([['normal', '일반'], ['nag', '독촉']], v.mode, m => { v.mode = m; })),
       h('div', { class: 'grid-2' }, dateField, field('시간 (선택)', time)),
       daysField,
+      h('div', { class: 'grid-2' }, h('label', { class: 'field' }, h('span', null, '종류'), cat, catList), field('미리 알림 (시간이 있을 때)', remind)),
       goal.hidden ? null : field('목표와 연결', goal)),
     actions: [
       { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${t.title}"을(를) 삭제할까요?`, { ok: '삭제', danger: true }))) return false; removeTask(t); onDone?.(); } },
@@ -65,6 +87,8 @@ export function editTask(t, onDone) {
         t.mode = v.mode;
         if (time.value) t.time = time.value; else delete t.time;
         if (goal.value) t.goalId = goal.value; else delete t.goalId;
+        if (cat.value.trim()) t.cat = cat.value.trim(); else delete t.cat;
+        if (remind.value !== '') t.remind = Number(remind.value); else delete t.remind;
         if (v.kind === 'once') {
           if (t.kind === 'daily') { t.start = date.value || dkey(); delete t.end; }
           t.kind = 'once'; t.date = date.value || dkey(); delete t.days;

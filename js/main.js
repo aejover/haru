@@ -12,24 +12,23 @@ import { announcePhone } from './phone.js';
 import home from './views/home.js';
 import memo from './views/memo.js';
 import calendar from './views/calendar.js';
-import timetable from './views/timetable.js';
-import nap from './views/nap.js';
 import goals from './views/goals.js';
-import routine, { routineHint } from './views/routine.js';
+import { routineHint } from './views/routine.js';
 import money from './views/money.js';
 import { tickAlarms, napLeft } from './alarm.js';
 import checklist from './views/checklist.js';
 import diary from './views/diary.js';
-import diet from './views/diet.js';
+import diet, { applyDailyMeals } from './views/diet.js';
 import growth from './views/growth.js';
 import profile from './views/profile.js';
 import settings from './views/settings.js';
 import docs from './views/docs.js';
 
-// "alarm" is the old address of the power-nap tab
-const VIEWS = { home, checklist, goals, routine, memo, calendar, timetable, pomodoro, nap, alarm: nap, youtube, docs, money, diary, diet, growth, profile, settings };
+const VIEWS = { home, checklist, goals, memo, calendar, pomodoro, youtube, docs, money, diary, diet, growth, profile, settings };
+// tabs that became a page of another tab keep their old addresses ("alarm" is the oldest name of 파워냅)
+const MOVED = { routine: 'checklist/routine', nap: 'pomodoro/nap', alarm: 'pomodoro/nap', timetable: 'calendar/timetable' };
 const NAV = [
-  ['home', '홈'], ['checklist', '할 일'], ['goals', '목표'], ['routine', '루틴'], ['memo', '메모장'], ['calendar', '캘린더'], ['timetable', '시간표'], ['pomodoro', '뽀모도로'], ['nap', '파워냅'],
+  ['home', '홈'], ['checklist', '할 일 · 루틴'], ['goals', '목표'], ['memo', '메모장'], ['calendar', '시간표 · 캘린더'], ['pomodoro', '뽀모도로 · 파워냅'],
   ['youtube', '유튜브 · 라디오'], ['docs', '문서 작업'], ['money', '가계부'], ['diary', '일기'], ['diet', '건강'], ['growth', '커리큘럼'],
   '-', ['profile', '프로필'], ['settings', '설정'],
 ];
@@ -91,6 +90,8 @@ function route(animate = true) {
   setTimeout(() => { if (!done) { run(); html.classList.remove('vt-running'); } }, 450);
 }
 function renderRoute() {
+  const moved = MOVED[location.hash.slice(1).split('/')[0]];
+  if (moved) history.replaceState(null, '', '#' + moved);
   const [id, ...rest] = location.hash.slice(1).split('/');
   const v = VIEWS[id] || home;
   const arg = rest.length ? decodeURIComponent(rest.join('/')) : undefined;
@@ -135,6 +136,24 @@ function paintTabbar() {
     h('button', { class: 'tab' + (TABS.some(([id]) => id === current?.id) ? '' : ' on'), 'aria-label': '전체 메뉴 열기', onclick: openDrawer },
       h('span', { class: 'tab-ico' }, icon('menu', 22)), h('span', { class: 'tab-lbl' }, '전체')));
 }
+// iOS home-screen apps get a viewport shorter than the screen (the status bar and home bar are taken off)
+// but are still drawn from the very top, so anything fixed to the bottom floats above an empty strip.
+// Measure that strip; the CSS pushes the tab bar and the page down into it.
+function fitStandalone() {
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!ios || !isStandalone()) return;
+  const set = () => {
+    const full = innerWidth > innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    const gap = Math.round(full - innerHeight);
+    const root = document.documentElement.style;
+    root.setProperty('--vgap', (gap > 4 && gap < 200 ? gap : 0) + 'px');
+    // room for the home bar under the tab bar's labels
+    root.setProperty('--vpad', (gap > 4 && gap < 200 ? Math.min(gap, 24) : 0) + 'px');
+  };
+  set();
+  addEventListener('resize', set);
+  addEventListener('orientationchange', () => setTimeout(set, 350));
+}
 // the on-screen keyboard covers the bottom of the screen: tuck the tab bar away while typing
 function watchKeyboard() {
   const vv = window.visualViewport;
@@ -150,8 +169,11 @@ const SITE_LINKS = [['about.html', '소개'], ['guide/', '사용 가이드'], ['
 function paintDrawer() {
   const k = dkey();
   const left = tasksOn(k).filter(t => !isDone(t, k)).length;
-  const hints = { checklist: left ? `${left}개 남음` : '', pomodoro: store.s.pomo.running ? fmtClock(remaining()) : '', nap: store.s.nap ? fmtClock(Math.ceil(napLeft() / 1000)) : '', routine: routineHint() };
-  const ico = { home: 'home', goals: 'target', routine: 'routine', memo: 'memo', calendar: 'calendar', timetable: 'table', nap: 'moon', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', money: 'wallet', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
+  const hints = {
+    checklist: left ? `${left}개 남음` : routineHint(),
+    pomodoro: store.s.pomo.running ? fmtClock(remaining()) : store.s.nap ? `파워냅 ${fmtClock(Math.ceil(napLeft() / 1000))}` : '',
+  };
+  const ico = { home: 'home', goals: 'target', memo: 'memo', calendar: 'calendar', pomodoro: 'timer', youtube: 'youtube', docs: 'doc', checklist: 'checklist', money: 'wallet', diary: 'diary', diet: 'diet', growth: 'chart', profile: 'user', settings: 'sliders' };
   const items = NAV.map((n, i) => n === '-' ? h('div', { class: 'nav-sep' }) :
     h('button', { class: 'nav-item' + (current?.id === n[0] ? ' on' : ''), style: { transitionDelay: `${i * 22}ms` }, onclick: () => go(n[0]) },
       icon(ico[n[0]], 20), h('span', null, n[1]), hints[n[0]] ? h('span', { class: 'hint num' }, hints[n[0]]) : null));
@@ -272,7 +294,8 @@ function showNotify(d) {
   if (d.kind === 'test') return toast(d.message, { title: d.title, icon: 'bell' });
   if (d.kind === 'alarm') return; // an open window rings the alarm itself
   if (d.kind === 'nag') chime('alarm');
-  toast(d.message, { title: d.title, icon: 'bell', duration: 9000, action: d.kind === 'nag' ? { label: '열기', onClick: () => go('checklist') } : null });
+  if (d.kind === 'task') chime('end');
+  toast(d.message, { title: d.title, icon: 'bell', duration: 9000, action: d.kind === 'nag' || d.kind === 'task' ? { label: '열기', onClick: () => go('checklist') } : null });
   desktopNotify(d.title, d.message);
 }
 
@@ -360,7 +383,7 @@ async function boot() {
   bus.on('theme', () => { if (drawer().classList.contains('in')) paintDrawer(); });
   bus.on('saved', () => { if (drawer().classList.contains('in')) paintDrawer(); });
   bus.on('change', w => { if (w === 'tasks' || w === 'all') paintTabbar(); });
-  watchKeyboard();
+  watchKeyboard(); fitStandalone();
 
   // opened by scanning another device's 기기 연결 QR: take the code out of the address before anything else
   const pairCode = /^#pair=([A-Za-z0-9_.-]+)$/.exec(location.hash)?.[1];
@@ -385,8 +408,9 @@ async function boot() {
   const daily = () => {
     const evs = evaluateTier();
     if (evs.length) announceResults(evs);
-    if (dkey() !== lastDay) { lastDay = dkey(); bus.emit('newday'); if (current?.id === 'home') route(false); }
+    if (dkey() !== lastDay) { lastDay = dkey(); applyDailyMeals(); bus.emit('newday'); if (current?.id === 'home') route(false); }
   };
+  applyDailyMeals(); // 매일 먹는 끼니 for the days since 하루 was last open
   setTimeout(daily, 1200);
   setInterval(daily, 60000);
 

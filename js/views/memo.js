@@ -1,7 +1,7 @@
 // memo.js — 메모장: text, voice recording (live transcription + Claude summary), links, images, files,
 // and a pen layer for doodling over a saved memo.
 import {
-  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl, download, htmlOf,
+  h, icon, store, commit, uid, fmtSize, toast, modal, promptDialog, confirmDialog, upload, pickFiles, gainXP, ai, textOf, aiFail, debounce, apiUrl, download, htmlOf, saveImage,
 } from '../core.js';
 import { memoBlocks } from './memo-blocks.js';
 import { openViewer } from '../viewer.js';
@@ -91,7 +91,13 @@ export default {
       const body = h('div', { class: 'memo-body', contenteditable: 'true', 'data-placeholder': '여기에 메모를 적으세요…', role: 'textbox', 'aria-multiline': 'true', 'aria-label': '메모 내용', html: m.html });
       body.addEventListener('input', () => { m.html = htmlOf(body); touch(); });
       // pictures put inline with the + button open in the zoom viewer
-      body.addEventListener('click', e => { const img = e.target.closest('img.mimg'); if (img && body.contains(img)) openViewer(img.src, { alt: img.alt || '' }); });
+      body.addEventListener('click', e => {
+        const img = e.target.closest('img.mimg');
+        if (img && body.contains(img)) openViewer(img.src, { alt: img.alt || '', onDownload: () => saveImage(img.src, img.alt || m.title || '메모 이미지') });
+        // files put inline: saved the same way (the share sheet on iPhone, where download links do nothing)
+        const file = e.target.closest('a.mfile');
+        if (file && body.contains(file)) { e.preventDefault(); saveImage(file.href, file.getAttribute('download') || '파일'); }
+      });
       // clean memos pasted before the fix: drop leftover colors/backgrounds/fonts, keep size & weight
       let tidied = false;
       body.querySelectorAll('[style],[color],[bgcolor],[face]').forEach(x => {
@@ -204,13 +210,7 @@ export default {
             a.summary ? h('div', { class: 'summary' }, a.summary) : null);
         }));
       }
-      async function saveFile(a) {
-        try {
-          const blob = await (await fetch(a.url)).blob();
-          const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/\+.*/, '');
-          download(blob, a.name && /\.\w+$/.test(a.name) ? a.name : `${a.name || '이미지'}.${ext}`);
-        } catch { toast('이미지를 내려받지 못했어요.'); }
-      }
+      const saveFile = a => saveImage(a.url, a.name || '이미지');
       function removeAtt(a) { m.atts = m.atts.filter(x => x !== a); commit('memos'); paintAtts(); paintList(); }
       async function addFiles(files, type) {
         for (const f of files) {

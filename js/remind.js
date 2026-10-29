@@ -7,6 +7,7 @@ const LOG_KEY = 'haru.sentLog';
 const toMin = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
 const dayDiff = (a, b) => Math.round((fromKey(a) - fromKey(b)) / 864e5);
 const ESCALATE = n => (n >= 3 ? 10 : n === 2 ? 5 : n === 1 ? 3 : 0);
+const leadText = m => (m % 60 ? `${m}분` : `${m / 60}시간`);
 const evenSlots = (n, a, b) => (n <= 1 ? [a] : Array.from({ length: n }, (_, i) => Math.round(a + (i * (b - a)) / (n - 1))));
 
 // same schedule as the server: repeat every N minutes on the day, then 3·5·10 times a day once it slips
@@ -61,6 +62,18 @@ function tick(notify) {
     if (!slot) continue;
     due.forEach(x => { sent[x.key] = Date.now(); });
     out.push({ title: slot.overdue ? '밀린 할 일' : '할 일 독촉', message: slot.overdue ? `"${t.title}" ${slot.overdue}일째 밀렸어요. 오늘 ${slot.idx}/${slot.n}번째 알림이에요.` : `"${t.title}" 아직 안 했어요. 지금 끝내 볼까요?`, tags: ['rotating_light'], priority: slot.overdue >= 2 ? 5 : 4, kind: 'nag' });
+  }
+  // 할 일 미리 알림: a task with a time rings this long before it (its own setting, else 설정's, else 1시간)
+  const taskLead = Number(s.taskLead ?? 60);
+  for (const t of st.tasks || []) {
+    if (!t.time || !applies(t, today) || t.done?.[today]) continue;
+    const before = t.remind ?? taskLead;
+    if (before < 0) continue;
+    const at = toMin(t.time) - before, key = `tk|${t.id}|${today}`;
+    if (at != null && at >= 0 && fresh(at) && !sent[key]) {
+      sent[key] = Date.now();
+      out.push({ title: before ? '곧 할 일이 있어요' : '할 일 시간이에요', message: `${t.time} ${t.title}${before ? ` · ${leadText(before)} 남았어요` : ''}`, tags: ['spiral_notepad'], priority: 4, kind: 'task' });
+    }
   }
   const lead = Number(s.eventLead ?? 30);
   for (const ev of st.events || []) {

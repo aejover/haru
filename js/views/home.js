@@ -2,7 +2,7 @@
 // time-progress; swipe right for 포포.
 import {
   h, icon, store, commit, bus, dkey, addDays, fromKey, fmtDay, pad, WEEK, monthKey, toast, seg, checkEl,
-  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify,
+  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify, ddayN, ddayLabel,
 } from '../core.js';
 import { getWeather } from '../weather.js';
 import { editTask, editEvent } from './edit-item.js';
@@ -17,6 +17,7 @@ export function taskRow(t, k, { onChange, hideGoal } = {}) {
     h('span', { class: 't-title editable', role: 'button', tabindex: '0', title: '눌러서 수정', onclick: () => editTask(t, onChange), onkeydown: e => { if (e.key === 'Enter') editTask(t, onChange); } }, t.title),
     h('span', { class: 'meta' },
       t.example ? h('span', { class: 'ex-tag' }, '예시') : null,
+      t.cat ? h('span', { class: 'cat-tag' }, t.cat) : null,
       goal ? h('a', { class: 'goal-tag', href: '#goals', title: `목표: ${goal.title}`, style: { '--gc': goal.color } }, h('i'), goal.title) : null,
       t.time ? h('span', { class: 'chip sm line num' }, t.time) : null,
       t.mode === 'nag' ? h('span', { class: 'nag-badge', title: '독촉 모드: 할 때까지 알림' }, icon('bell', 12), '독촉') : null,
@@ -70,6 +71,19 @@ export default {
       } catch { weather.replaceChildren(icon('cloud', 18), h('span', null, '날씨를 불러오지 못했어요 · 다시 시도')); }
     }
     loadWeather(); ctx.every(20 * 60e3, () => loadWeather(true));
+
+    // ----- 디데이 (made in 캘린더): the nearest few, right under the weather -----
+    const ddays = h('div', { class: 'dday-row' });
+    function paintDdays() {
+      const list = (s.ddays || []).filter(x => ddayN(x.date) >= -3) // keep a just-passed day for a few days
+        .sort((a, b) => (ddayN(a.date) < 0) - (ddayN(b.date) < 0) || Math.abs(ddayN(a.date)) - Math.abs(ddayN(b.date))).slice(0, 4);
+      ddays.replaceChildren(list.map(x => h('a', { class: 'dday-chip' + (ddayN(x.date) === 0 ? ' on' : ''), href: `#calendar/${x.date}` },
+        h('span', { class: 'ell' }, x.title), h('b', { class: 'num' }, ddayLabel(x.date)))));
+      ddays.hidden = !list.length;
+    }
+    paintDdays();
+    ctx.on('change', w => { if (w === 'ddays' || w === 'all') paintDdays(); });
+    ctx.on('newday', paintDdays);
 
     // ----- mail -----
     const mail = h('div');
@@ -232,7 +246,7 @@ export default {
 
     // two pages side by side: the usual home, and 포포 one swipe to the right
     const main = h('div', { class: 'home-main stagger' },
-      h('section', { class: 'hero' }, clock, dateEl, weather),
+      h('section', { class: 'hero' }, clock, dateEl, weather, ddays),
       mail, mottoBox, swipeCard, pendingCard, progress);
     const popo = popoPage(ctx);
     const track = h('div', { class: 'home-track' }, main, popo.page);

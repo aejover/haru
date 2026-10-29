@@ -1,7 +1,8 @@
-// viewer.js — full-screen image viewer: wheel / pinch / buttons to zoom, drag to move, double-tap to zoom in & out.
-import { h, icon } from './core.js';
+// viewer.js — full-screen image viewer: wheel / pinch / buttons to zoom, drag to move, double-tap to zoom in & out,
+// and a download button for every picture.
+import { h, icon, saveImage } from './core.js';
 
-export function openViewer(src, { alt = '', onDownload } = {}) {
+export function openViewer(src, { alt = '', onDownload = () => saveImage(src, alt || '이미지') } = {}) {
   let scale = 1, x = 0, y = 0;
   const img = h('img', { src, alt, draggable: 'false', class: 'viewer-img' });
   const stage = h('div', { class: 'viewer-stage' }, img);

@@ -1,11 +1,13 @@
-﻿// calendar.js — 일정 · 할 일 · 루틴, plus the "이미지 캘린더": drop a timetable/schedule photo above the grid
-// and Claude reads it into events.
+﻿// calendar.js — 시간표 first, swipe over for the month: 일정 · 할 일 · 루틴 · 디데이, the month swipes sideways,
+// plus the "이미지 캘린더": drop a schedule photo above the grid and Claude reads it into events.
 import {
-  h, icon, store, commit, uid, dkey, addDays, fromKey, fmtDay, monthKey, WEEK, seg, checkEl, toast, modal, upload, pickFiles,
-  tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj,
+  h, icon, store, commit, uid, dkey, addDays, fromKey, fmtDay, fmtShort, monthKey, WEEK, seg, checkEl, toast, modal, upload, pickFiles,
+  tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj, ddayLabel, ddayN,
 } from '../core.js';
 import { editEvent, editTask } from './edit-item.js';
 import { openViewer } from '../viewer.js';
+import timetable from './timetable.js';
+import { pager } from '../pager.js';
 
 function bigMonth(ym, sel, onPick) {
   const [y, m] = ym.split('-').map(Number);
@@ -20,15 +22,17 @@ function bigMonth(ym, sel, onPick) {
     const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
     const todos = s.tasks.filter(t => t.kind === 'once' && t.date === k);
     const routines = tasksOn(k).filter(t => t.kind === 'daily');
+    const dds = (s.ddays || []).filter(x => x.date === k);
     // tapping an item in the month grid opens its editor (tapping the empty part of the day selects it)
     const open = fn => ev => { ev.stopPropagation(); onPick(k); fn(); };
     const items = [
+      ...dds.map(x => h('div', { class: 'cal-ev dday' }, `${x.title}`)),
       ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : ''), title: '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))) }, (e.time ? e.time + ' ' : '') + e.title)),
       ...todos.map(t => h('div', { class: 'cal-ev todo', title: '눌러서 수정', onclick: open(() => editTask(t, () => onPick(k))) }, (isDone(t, k) ? '✓ ' : '') + t.title)),
     ];
     const max = 3;
     grid.append(h('button', {
-      class: 'cal-cell' + (d.getMonth() !== m - 1 ? ' other' : '') + (k === today ? ' today' : '') + (k === sel ? ' sel' : ''),
+      class: 'cal-cell' + (d.getMonth() !== m - 1 ? ' other' : '') + (k === today ? ' today' : '') + (k === sel ? ' sel' : '') + (dds.length ? ' has-dday' : ''),
       onclick: () => onPick(k), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일`,
     }, h('span', { class: 'd' }, d.getDate()), items.slice(0, max),
       items.length > max ? h('div', { class: 'cal-more' }, `+${items.length - max}`) : null,
@@ -55,23 +59,83 @@ const EXTRACT = obj({
 
 export default {
   id: 'calendar', title: '캘린더', icon: 'calendar',
+  // 시간표 comes first and the month is one swipe over: #calendar, #calendar/month, #calendar/<date>
+  // (#timetable still lands here)
   render(el, ctx, arg) {
+    const toMonth = arg === 'month' || /^\d{4}-\d{2}-\d{2}$/.test(arg || '');
+    const pg = pager(ctx, [
+      { id: 'timetable', title: '시간표', render: b => timetable.render(b, ctx) },
+      { id: 'month', title: '캘린더', render: b => renderMonth(b, ctx, arg) },
+    ], { start: toMonth ? 1 : 0, base: 'calendar' });
+    el.append(pg.el);
+  },
+};
+
+function renderMonth(el, ctx, arg) {
+  {
     el.classList.add('stagger');
     const s = store.s;
+    s.ddays ||= [];
     let sel = /^\d{4}-\d{2}-\d{2}$/.test(arg || '') ? arg : dkey();
     let ym = sel.slice(0, 7);
 
     const head = h('div', { class: 'cal-head' });
     const imgBox = h('div', { class: 'cal-img' });
-    const gridBox = h('section', { class: 'glass card' });
+    // the month moves sideways with a finger or the mouse; the tab's own page swipe leaves it alone
+    const gridBox = h('section', { class: 'glass card cal-swipe', 'data-noswipe': '' });
     const panel = h('aside', { class: 'day-panel' });
+
+    // slide the month out one way and the next one in from the other side
+    const EASE = 'cubic-bezier(.2, .9, .3, 1)';
+    function slideMonth(dir, from = 0) {
+      const [y, m] = ym.split('-').map(Number);
+      const old = gridBox.firstChild;
+      const swap = () => {
+        ym = monthKey(new Date(y, m - 1 + dir, 1));
+        paintHead(); paintImage(); paintGrid();
+        gridBox.firstChild?.animate([{ transform: `translateX(${dir * 28}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 520, easing: EASE });
+      };
+      if (!old || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap();
+      const a = old.animate([{ transform: `translateX(${from}px)`, opacity: Math.max(0.4, 1 - Math.abs(from) / 500) }, { transform: `translateX(${-dir * 28}%)`, opacity: 0 }], { duration: 200, easing: 'ease-in', fill: 'forwards' });
+      a.onfinish = swap;
+    }
+    let sw = null;
+    gridBox.addEventListener('pointerdown', e => { if (e.button > 0) return; sw = { x: e.clientX, y: e.clientY, t: Date.now(), on: false, dead: false }; });
+    const swMove = e => {
+      if (!sw || sw.dead) return;
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      if (!sw.on) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw.dead = true; return; }
+        if (Math.abs(dx) < 10) return;
+        sw.on = true; gridBox.classList.add('dragging'); getSelection().removeAllRanges();
+      }
+      const g = gridBox.firstChild;
+      if (g) { g.style.transform = `translateX(${dx}px)`; g.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 500)); }
+    };
+    const swEnd = e => {
+      if (!sw) return;
+      const d = sw; sw = null;
+      if (!d.on) return;
+      gridBox.classList.remove('dragging');
+      const g = gridBox.firstChild, dx = e.type === 'pointercancel' ? 0 : e.clientX - d.x;
+      const fast = Math.abs(dx) / Math.max(1, Date.now() - d.t) > 0.5;
+      if (g) { g.style.transform = ''; g.style.opacity = ''; }
+      if (Math.abs(dx) > 60 || (fast && Math.abs(dx) > 20)) slideMonth(dx < 0 ? 1 : -1, dx);
+      else g?.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 450, easing: EASE });
+      // the drag shouldn't also pick the day it started on
+      const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
+      gridBox.addEventListener('click', stop, { capture: true, once: true });
+      setTimeout(() => gridBox.removeEventListener('click', stop, { capture: true }), 50);
+    };
+    window.addEventListener('pointermove', swMove); window.addEventListener('pointerup', swEnd); window.addEventListener('pointercancel', swEnd);
+    ctx.cleanup(() => { window.removeEventListener('pointermove', swMove); window.removeEventListener('pointerup', swEnd); window.removeEventListener('pointercancel', swEnd); });
 
     function paintHead() {
       const [y, m] = ym.split('-').map(Number);
       head.replaceChildren(
-        h('button', { class: 'btn-icon glass-btn', 'aria-label': '이전 달', onclick: () => { ym = monthKey(new Date(y, m - 2, 1)); paintAll(); } }, icon('left')),
+        h('button', { class: 'btn-icon glass-btn', 'aria-label': '이전 달', onclick: () => slideMonth(-1) }, icon('left')),
         h('span', { class: 'month num' }, `${y}년 ${m}월`),
-        h('button', { class: 'btn-icon glass-btn', 'aria-label': '다음 달', onclick: () => { ym = monthKey(new Date(y, m, 1)); paintAll(); } }, icon('right')),
+        h('button', { class: 'btn-icon glass-btn', 'aria-label': '다음 달', onclick: () => slideMonth(1) }, icon('right')),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { sel = dkey(); ym = monthKey(); paintAll(); } }, '오늘'),
         h('span', { class: 'spacer' }),
         h('span', { class: 'small muted' }, s.settings.ntfyTopic ? `일정 당일 ${s.settings.briefHour}시에 휴대폰으로 알려 드려요` : '휴대폰 알림은 설정에서 연결할 수 있어요'));
@@ -179,9 +243,11 @@ export default {
         toast('추가했어요.', { icon: 'check' });
         paintAll();
       }
+      const dds = s.ddays.filter(x => x.date === k);
       panel.replaceChildren(
         h('section', { class: 'glass card col' },
           h('div', { class: 'row between' }, h('h2', { class: 'h2' }, fmtDay(k)), k === dkey() ? h('span', { class: 'chip sm ink' }, '오늘') : null),
+          dds.map(x => h('div', { class: 'dday-line' }, icon('flag', 15), h('b', null, x.title), h('span', { class: 'chip sm ink num' }, ddayLabel(x.date)))),
           evs.length || list.length ? h('div', null,
             evs.map(e => h('div', { class: 'item-row' }, h('span', { class: 'type-dot' }), h('span', { class: 'chip sm line num' }, e.time || '종일'),
               h('button', { class: 'grow item-edit', title: '눌러서 수정', onclick: () => editEvent(e, paintAll) }, e.title, e.note ? h('div', { class: 'small muted' }, e.note) : null, e.source === 'image' ? h('div', { class: 'tiny muted' }, '이미지에서 읽은 일정') : null),
@@ -197,13 +263,38 @@ export default {
             : h('div', { class: 'empty' }, icon('calendar', 28), '이 날은 비어 있어요.')),
         h('section', { class: 'glass card col' },
           h('h3', { class: 'h3' }, '추가하기'), typeSeg, title, h('div', { class: 'row wrap' }, time, nagSeg), dayRow, note,
-          h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '이 날에 추가')));
+          h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '이 날에 추가')),
+        ddayCard(k));
+    }
+
+    // ----- 디데이: count down to (or up from) a date; the nearest ones also show on 홈 under the weather -----
+    function ddayCard(k) {
+      const name = h('input', { class: 'input', placeholder: '예: 수능, 여행, 기념일', 'aria-label': '디데이 이름', maxlength: 20, onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) addDday(); } });
+      const date = h('input', { class: 'input', type: 'date', value: k, 'aria-label': '디데이 날짜', style: { width: '160px' } });
+      function addDday() {
+        const t = name.value.trim();
+        if (!t) { name.focus(); return; }
+        if (!date.value) { toast('날짜를 고르세요.'); return; }
+        s.ddays.push({ id: uid(), title: t, date: date.value });
+        commit('ddays'); toast(`${t} ${ddayLabel(date.value)}를 만들었어요. 홈에서도 보여요.`, { icon: 'flag' });
+        paintGrid(); paintPanel();
+      }
+      // upcoming first (nearest on top), then the ones already past
+      const list = [...s.ddays].sort((a, b) => (ddayN(a.date) < 0) - (ddayN(b.date) < 0) || Math.abs(ddayN(a.date)) - Math.abs(ddayN(b.date)));
+      return h('section', { class: 'glass card col' },
+        h('div', { class: 'row between' }, h('h3', { class: 'h3' }, '디데이'), h('span', { class: 'small muted' }, '홈 화면에도 보여요')),
+        list.length ? h('div', null, list.map(x => h('div', { class: 'item-row' },
+          h('span', { class: 'chip sm ' + (ddayN(x.date) === 0 ? 'ink' : 'line') + ' num' }, ddayLabel(x.date)),
+          h('button', { class: 'grow item-edit', title: '이 날로 가기', onclick: () => { sel = x.date; ym = x.date.slice(0, 7); paintAll(); } }, x.title, h('div', { class: 'tiny muted' }, fmtShort(x.date))),
+          h('button', { class: 'btn-icon sm', 'aria-label': `${x.title} 디데이 삭제`, onclick: () => { s.ddays = s.ddays.filter(y => y !== x); commit('ddays'); paintGrid(); paintPanel(); } }, icon('trash', 15))))) : null,
+        h('div', { class: 'row wrap' }, h('div', { class: 'grow', style: { minWidth: '140px' } }, name), date),
+        h('button', { class: 'btn btn-ghost', onclick: addDday }, icon('flag', 16), '디데이 만들기'));
     }
     function paintAll() { paintHead(); paintImage(); paintGrid(); paintPanel(); }
     paintAll();
-    ctx.on('change', w => { if (['tasks', 'events'].includes(w)) { paintGrid(); paintPanel(); } });
+    ctx.on('change', w => { if (['tasks', 'events', 'ddays'].includes(w)) { paintGrid(); paintPanel(); } });
 
     el.append(h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '캘린더')), head,
       h('div', { class: 'cal-layout' }, h('div', { class: 'col', style: { gap: '12px', minWidth: 0 } }, imgBox, gridBox), panel));
-  },
-};
+  }
+}
