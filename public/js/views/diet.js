@@ -1,8 +1,10 @@
-﻿// diet.js — 식단: 신체 정보 → BMR/TDEE/목표 칼로리·영양소, 나만의 음식·레시피, 끼니 기록, 식습관 피드백.
+﻿// diet.js — 건강: 수면 · 에너지 | 식단 | BMI, swiped sideways. 식단: 신체 정보 → BMR/TDEE/목표 칼로리·영양소,
+// 나만의 음식·레시피, 끼니 기록 (매일 먹는 끼니는 저절로 기록), 식습관 피드백. BMI: 체질량지수 계산기.
 import {
-  h, icon, store, commit, uid, dkey, addDays, fmtDay, toast, modal, seg, gainXP, ai, jsonOf, textOf, aiFail, obj, pickFiles, fileToBlock,
+  h, icon, store, commit, uid, dkey, addDays, fmtDay, fmtShort, toast, modal, seg, gainXP, ai, jsonOf, textOf, aiFail, obj, pickFiles, fileToBlock,
 } from '../core.js';
 import { renderSleep } from './sleep.js';
+import { pager } from '../pager.js';
 
 const MEALS = [['breakfast', '아침'], ['lunch', '점심'], ['dinner', '저녁'], ['snack', '간식']];
 const ACTIVITY = [[1.2, '거의 안 움직임 (사무직)'], [1.375, '가벼운 활동 (주 1~3회 운동)'], [1.55, '보통 활동 (주 3~5회 운동)'], [1.725, '많은 활동 (주 6~7회 운동)'], [1.9, '매우 많은 활동 (육체 노동·선수)']];
@@ -22,23 +24,124 @@ export function targets(b) {
 const sum = list => list.reduce((a, x) => ({ kcal: a.kcal + x.kcal, carb: a.carb + x.carb, protein: a.protein + x.protein, fat: a.fat + x.fat }), { kcal: 0, carb: 0, protein: 0, fat: 0 });
 
 const NUTRI = obj({ name: { type: 'string' }, serving: { type: 'string' }, kcal: { type: 'number' }, carb: { type: 'number' }, protein: { type: 'number' }, fat: { type: 'number' }, note: { type: 'string' } });
+const mealName = id => MEALS.find(m => m[0] === id)?.[1] || '';
+
+// 매일 먹는 끼니: marked once ("아침에 시리얼"), then written into every day's log by itself — also the days
+// the app wasn't opened (up to a month back). Deleting one day's entry skips just that day.
+export function applyDailyMeals() {
+  const D = store.s?.diet;
+  if (!D?.daily?.length) return;
+  const today = dkey(), floor = addDays(today, -31);
+  let changed = false;
+  for (const m of D.daily) {
+    for (let k = m.start > floor ? m.start : floor; k <= today; k = addDays(k, 1)) {
+      if (m.skip?.[k] || (D.logs[k] || []).some(x => x.dailyId === m.id)) continue;
+      (D.logs[k] ||= []).push({ id: uid(), dailyId: m.id, foodId: m.foodId, name: m.name, meal: m.meal, qty: m.qty, kcal: m.kcal, carb: m.carb, protein: m.protein, fat: m.fat });
+      changed = true;
+    }
+  }
+  if (changed) commit('diet');
+}
+
+// 체질량지수: 대한비만학회 기준 (아시아·태평양)
+const BMI_LEVELS = [[18.5, '저체중', '#5B8FD6'], [23, '정상', '#4CAF7A'], [25, '비만 전단계', '#E0A82E'], [30, '1단계 비만', '#EE8A3C'], [35, '2단계 비만', '#E2604E'], [Infinity, '3단계 비만', '#C2414B']];
+const BMI_MIN = 15, BMI_MAX = 40;
+function renderBMI(el, ctx) {
+  el.classList.add('stagger', 'narrow');
+  const D = store.s.diet;
+  D.bmiLog ||= [];
+  const num = (val, label, unit, onInput) => h('label', { class: 'field' }, h('span', null, `${label} (${unit})`),
+    h('input', { class: 'input bmi-in', type: 'number', inputmode: 'decimal', step: '0.1', value: val, oninput: onInput }));
+  const big = h('b', { class: 'bmi-num num' });
+  const level = h('span', { class: 'bmi-level' });
+  const marker = h('i', { class: 'bmi-marker' });
+  const pos = v => ((Math.min(BMI_MAX, Math.max(BMI_MIN, v)) - BMI_MIN) / (BMI_MAX - BMI_MIN)) * 100;
+  let from = BMI_MIN;
+  const scale = h('div', { class: 'bmi-scale' }, BMI_LEVELS.map(([to, name, color]) => {
+    const part = h('span', { style: { flex: `${pos(to) - pos(from)} 0 0`, background: color }, title: name });
+    from = to; return part;
+  }), marker);
+  const ticks = h('div', { class: 'bmi-ticks num' }, [18.5, 23, 25, 30, 35].map(v => h('span', { style: { left: pos(v) + '%' } }, v)));
+  const notes = h('div', { class: 'col', style: { gap: '6px' } });
+  const logBox = h('div');
+  const saveBtn = h('button', { class: 'btn btn-ink', onclick: () => save() }, icon('check', 16), '오늘 기록하기');
+  let cur = null;
+  function calc() {
+    const hgt = +D.body.height, wgt = +D.body.weight;
+    if (!(hgt > 50 && hgt < 260 && wgt > 15 && wgt < 400)) { cur = null; return; }
+    const m = hgt / 100, bmi = wgt / (m * m);
+    cur = { bmi, wgt, m, lv: BMI_LEVELS.find(([to]) => bmi < to) };
+  }
+  function paint() {
+    calc();
+    el.querySelector('.bmi-card')?.classList.toggle('empty-bmi', !cur);
+    saveBtn.disabled = !cur;
+    if (!cur) { big.textContent = '–'; level.textContent = '키와 몸무게를 넣어 주세요'; level.style.color = ''; marker.style.left = '0%'; marker.style.opacity = '0'; notes.replaceChildren(); return; }
+    const { bmi, wgt, m, lv } = cur;
+    big.textContent = bmi.toFixed(1);
+    level.textContent = lv[1]; level.style.color = lv[2];
+    marker.style.opacity = '1'; marker.style.left = pos(bmi) + '%'; marker.style.background = lv[2];
+    const lo = 18.5 * m * m, hi = 22.9 * m * m;
+    notes.replaceChildren(
+      h('div', { class: 'row', style: { gap: '8px' } }, icon('check', 15), h('span', { class: 'small' }, `내 키의 정상 체중 범위: `, h('b', { class: 'num' }, `${lo.toFixed(1)} ~ ${hi.toFixed(1)} kg`))),
+      bmi < 18.5 ? h('div', { class: 'row', style: { gap: '8px' } }, icon('arrowUp', 15), h('span', { class: 'small' }, `정상 범위까지 `, h('b', { class: 'num' }, `+${(lo - wgt).toFixed(1)} kg`)))
+        : bmi >= 23 ? h('div', { class: 'row', style: { gap: '8px' } }, icon('arrowDown', 15), h('span', { class: 'small' }, `정상 범위까지 `, h('b', { class: 'num' }, `−${(wgt - hi).toFixed(1)} kg`)))
+          : h('div', { class: 'row', style: { gap: '8px' } }, icon('sparkle', 15), h('span', { class: 'small' }, '정상 범위예요. 지금처럼 유지해요!')));
+  }
+  function save() {
+    if (!cur) return;
+    const k = dkey();
+    D.bmiLog = D.bmiLog.filter(x => x.date !== k);
+    D.bmiLog.push({ date: k, bmi: Math.round(cur.bmi * 10) / 10, weight: cur.wgt });
+    D.bmiLog.sort((a, b) => a.date.localeCompare(b.date));
+    commit('diet'); toast(`오늘 BMI ${cur.bmi.toFixed(1)}을 기록했어요.`, { icon: 'check' });
+    paintLog();
+  }
+  function paintLog() {
+    const last = D.bmiLog.slice(-6).reverse();
+    logBox.replaceChildren(last.length ? h('div', null, last.map((x, i) => {
+      const prev = last[i + 1];
+      const d = prev ? x.weight - prev.weight : 0;
+      return h('div', { class: 'item-row' }, h('span', { class: 'chip sm line num' }, fmtShort(x.date)), h('b', { class: 'grow num' }, `BMI ${x.bmi}`),
+        h('span', { class: 'small muted num' }, `${x.weight} kg${prev && d ? ` (${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)})` : ''}`),
+        h('button', { class: 'btn-icon sm', 'aria-label': '기록 삭제', onclick: () => { D.bmiLog = D.bmiLog.filter(y => y !== x); commit('diet'); paintLog(); } }, icon('x', 14)));
+    })) : h('p', { class: 'small muted', style: { margin: 0 } }, '기록하면 몸무게 변화가 여기에 쌓여요.'));
+  }
+  const onBody = key => e => { D.body[key] = e.target.value; commit('diet'); paint(); };
+  el.append(
+    h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, 'BMI')),
+    h('section', { class: 'glass card col bmi-card' },
+      h('div', { class: 'grid-2' }, num(D.body.height, '키', 'cm', onBody('height')), num(D.body.weight, '몸무게', 'kg', onBody('weight'))),
+      h('div', { class: 'bmi-result' }, h('span', { class: 'small muted' }, '내 체질량지수'), big, level),
+      h('div', { class: 'bmi-gauge' }, scale, ticks),
+      notes, saveBtn,
+      h('p', { class: 'tiny muted', style: { margin: 0, lineHeight: 1.6 } }, 'BMI = 몸무게(kg) ÷ 키(m)². 대한비만학회 기준이에요. 근육량이나 체지방은 반영하지 못하는 참고 지표예요. 키·몸무게는 식단의 신체 정보와 같이 바뀌어요.')),
+    h('section', { class: 'glass card col' }, h('h2', { class: 'h2' }, '기록'), logBox));
+  paint(); paintLog();
+  ctx.on('change', w => { if (w === 'diet' && !el.contains(document.activeElement)) { el.querySelectorAll('.bmi-in').forEach((inp, i) => { inp.value = D.body[i ? 'weight' : 'height']; }); paint(); } });
+}
 
 export default {
   id: 'diet', title: '건강', icon: 'diet',
+  // three pages side by side: 수면 · 에너지 | 식단 | BMI (last). #diet, #diet/food, #diet/bmi
   render(el, ctx, arg) {
-    el.classList.add('stagger');
     const D = store.s.diet;
+    D.daily ||= [];
+    applyDailyMeals();
     let day = dkey();
     const left = h('div', { class: 'col', style: { gap: '16px', minWidth: 0 } });
     const right = h('div', { class: 'col', style: { gap: '16px' } });
-    // 건강 = 수면·에너지 + 식단 (remembers the last section)
-    const sleepBox = h('div', { class: 'col', style: { gap: '16px' } });
     const dietBox = h('div', { class: 'diet-layout' }, left, right);
-    let section = arg === 'diet' || arg === 'sleep' ? arg : (() => { try { return localStorage.getItem('haru.health') || 'sleep'; } catch { return 'sleep'; } })();
-    const show = v => { section = v; try { localStorage.setItem('haru.health', v); } catch { /* ignore */ } sleepBox.hidden = v !== 'sleep'; dietBox.hidden = v !== 'diet'; };
-    el.append(h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '건강'), seg([['sleep', '수면 · 에너지'], ['diet', '식단']], section, show)), sleepBox, dietBox);
-    renderSleep(sleepBox, ctx);
-    show(section);
+    const PAGES = ['sleep', 'food', 'bmi'];
+    const wanted = arg === 'diet' ? 'food' : arg;
+    const saved = (() => { try { return localStorage.getItem('haru.health'); } catch { return null; } })();
+    const remember = id => () => { try { localStorage.setItem('haru.health', id); } catch { /* ignore */ } };
+    const pg = pager(ctx, [
+      { id: 'sleep', title: '수면 · 에너지', onShow: remember('sleep'), render: b => { b.classList.add('stagger'); renderSleep(b, ctx); } },
+      { id: 'food', title: '식단', onShow: remember('food'), render: b => { b.classList.add('stagger'); b.append(dietBox); } },
+      { id: 'bmi', title: 'BMI', onShow: remember('bmi'), render: b => renderBMI(b, ctx) },
+    ], { start: Math.max(0, PAGES.indexOf(PAGES.includes(wanted) ? wanted : saved === 'diet' ? 'food' : saved)), base: 'diet' });
+    el.append(pg.el);
 
     function ring(value, goal) {
       const R = 64, C = 2 * Math.PI * R, f = goal ? Math.min(1, value / goal) : 0;
@@ -69,11 +172,42 @@ export default {
             return h('div', { class: 'meal' },
               h('div', { class: 'meal-head' }, h('b', null, label), h('span', { class: 'small muted num' }, items.length ? `${Math.round(st.kcal)} kcal` : ''), h('span', { class: 'spacer' }),
                 h('button', { class: 'btn btn-ghost btn-sm', onclick: () => addToMeal(id) }, icon('plus', 14), '추가')),
-              items.map(x => h('div', { class: 'food-row' }, h('span', { class: 'grow' }, x.name, x.qty && x.qty !== 1 ? h('span', { class: 'muted' }, ` × ${x.qty}`) : null),
-                h('span', { class: 'k' }, `${Math.round(x.kcal)} kcal · 탄${r1(x.carb)} 단${r1(x.protein)} 지${r1(x.fat)}`),
-                h('button', { class: 'btn-icon sm', 'aria-label': '삭제', onclick: () => { D.logs[day] = logs.filter(y => y !== x); commit('diet'); paintAll(); } }, icon('x', 14)))));
+              items.map(x => {
+                const daily = x.dailyId && D.daily.find(m => m.id === x.dailyId);
+                return h('div', { class: 'food-row' }, h('span', { class: 'grow' }, x.name, x.qty && x.qty !== 1 ? h('span', { class: 'muted' }, ` × ${x.qty}`) : null),
+                  h('span', { class: 'k' }, `${Math.round(x.kcal)} kcal · 탄${r1(x.carb)} 단${r1(x.protein)} 지${r1(x.fat)}`),
+                  h('button', { class: 'btn-icon sm daily-btn' + (daily ? ' on' : ''), 'aria-pressed': String(!!daily), 'aria-label': daily ? '매일 먹는 끼니에서 빼기' : '매일 먹는 끼니로', title: daily ? '매일 먹는 끼니 (눌러서 그만)' : '매일 먹는 끼니로 (매일 자동 기록)', onclick: () => toggleDaily(x) }, icon('refresh', 14)),
+                  h('button', { class: 'btn-icon sm', 'aria-label': '삭제', onclick: () => {
+                    D.logs[day] = logs.filter(y => y !== x);
+                    if (daily) (daily.skip ||= {})[day] = true; // only this day; the next days still fill in
+                    commit('diet'); paintAll();
+                  } }, icon('x', 14)));
+              }));
           })),
+        dailyCard(),
         feedbackCard());
+    }
+
+    function toggleDaily(x) {
+      const on = x.dailyId && D.daily.find(m => m.id === x.dailyId);
+      if (on) {
+        D.daily = D.daily.filter(m => m !== on);
+        toast(`${mealName(on.meal)}의 ${on.name}을(를) 매일 기록하지 않을게요. 지난 기록은 그대로예요.`);
+      } else {
+        const m = { id: uid(), meal: x.meal, foodId: x.foodId, name: x.name, qty: x.qty, kcal: x.kcal, carb: x.carb, protein: x.protein, fat: x.fat, start: day, skip: {} };
+        D.daily.push(m); x.dailyId = m.id;
+        toast(`매일 ${mealName(x.meal)}에 ${x.name}을(를) 자동으로 기록할게요.`, { icon: 'refresh' });
+      }
+      commit('diet'); applyDailyMeals(); paintAll();
+    }
+    function dailyCard() {
+      return h('section', { class: 'glass card col' },
+        h('div', { class: 'row between' }, h('h2', { class: 'h2' }, '매일 먹는 끼니'), h('span', { class: 'small muted num' }, D.daily.length ? `${D.daily.length}개` : '')),
+        D.daily.length ? h('div', null, MEALS.flatMap(([id]) => D.daily.filter(m => m.meal === id)).map(m => h('div', { class: 'item-row' },
+          h('span', { class: 'chip sm line' }, mealName(m.meal)), h('span', { class: 'grow' }, m.name, h('span', { class: 'tiny muted num' }, ` · ${Math.round(m.kcal)} kcal`)),
+          h('button', { class: 'btn-icon sm', 'aria-label': `${m.name} 매일 기록 그만`, onclick: () => { D.daily = D.daily.filter(y => y !== m); commit('diet'); toast('매일 기록을 멈췄어요. 지난 기록은 그대로예요.'); paintAll(); } }, icon('x', 14)))))
+          : null,
+        h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, '끼니에 기록한 음식 옆 ', icon('refresh', 12), ' 버튼을 누르면 매일 먹는 끼니가 돼요. 입력하지 않아도 날마다 저절로 기록돼요.'));
     }
 
     function feedbackCard() {
@@ -245,6 +379,7 @@ export default {
 
     function paintAll() { paintToday(); paintSide(); }
     paintAll();
-    ctx.on('change', w => { if (w === 'diet' && !el.contains(document.activeElement)) paintToday(); });
+    ctx.on('change', w => { if (w === 'diet' && !dietBox.contains(document.activeElement)) paintToday(); });
+    ctx.on('newday', () => { applyDailyMeals(); if (day === addDays(dkey(), -1)) day = dkey(); paintAll(); });
   },
 };

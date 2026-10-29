@@ -236,6 +236,21 @@ async function tick() {
     pushNotify({ title: slot.overdue ? '밀린 할 일' : '할 일 독촉', message, tags: ['rotating_light'], priority: slot.overdue >= 2 ? 5 : 4, kind: 'nag', ref: t.id });
   }
 
+  // 할 일 미리 알림: a task with a time rings this long before it (its own setting, else the default, else 1시간)
+  const taskLead = Number(s.taskLead ?? 60);
+  for (const t of state.tasks || []) {
+    if (!t.time || !applies(t, today) || t.done?.[today]) continue;
+    const before = t.remind ?? taskLead;
+    if (before < 0) continue;
+    const at = toMin(t.time) - before;
+    const key = `tk|${t.id}|${today}`;
+    if (at != null && at >= 0 && fresh(at) && !sentLog[key]) {
+      sentLog[key] = Date.now(); dirty = true;
+      const left = before % 60 ? `${before}분` : `${before / 60}시간`;
+      pushNotify({ title: before ? '곧 할 일이 있어요' : '할 일 시간이에요', message: `${t.time} ${t.title}${before ? ` · ${left} 남았어요` : ''}`, tags: ['spiral_notepad'], priority: 4, kind: 'task', ref: t.id });
+    }
+  }
+
   const lead = Number(s.eventLead ?? 30);
   for (const ev of state.events || []) {
     if (ev.date !== today || !ev.time) continue;

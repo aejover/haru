@@ -1,32 +1,55 @@
 // slides.js — PPT 편집기: 슬라이드 목록, 960×540 무대, 텍스트·그림·도형, 테마, 발표 모드, pptx 저장.
-import { h, icon, uid, toast, upload, pickFiles, download, obj, apiUrl } from '../core.js';
+import { h, icon, uid, toast, modal, upload, pickFiles, download, obj, apiUrl } from '../core.js';
 import { loadScript, LIBS, sanitize, safeName, tb, group, colorBtn } from './util.js';
 
 const W = 960, H = 540;
+// Templates: colours plus a few quiet shapes per slide kind (marked deco, kept behind the text, swapped
+// when the template changes). Every colour is plain hex so the .pptx export matches the screen.
+const R = (x, y, w, hh, fill, radius = 0) => ({ type: 'rect', x, y, w, h: hh, fill, radius });
+const O = (x, y, w, hh, fill) => ({ type: 'ellipse', x, y, w, h: hh, fill });
 const THEMES = {
-  white: { name: '화이트', bg: '#ffffff', fg: '#141416', sub: '#6b6c70', accent: '#141416' },
-  black: { name: '블랙', bg: '#121214', fg: '#f4f4f2', sub: '#a4a5aa', accent: '#f4f4f2' },
-  gray: { name: '그레이', bg: '#ececea', fg: '#18181a', sub: '#6b6c70', accent: '#18181a' },
-  navy: { name: '네이비', bg: '#1d2b44', fg: '#f3f5f9', sub: '#b7c2d6', accent: '#f2c230' },
+  white: { name: '미니멀 화이트', bg: '#ffffff', fg: '#141416', sub: '#6b6c70', accent: '#141416',
+    deco: { title: [R(450, 140, 60, 4, '#141416')], content: [R(60, 118, 44, 4, '#141416')], section: [] } },
+  black: { name: '모던 블랙', bg: '#121214', fg: '#f4f4f2', sub: '#a4a5aa', accent: '#f4f4f2',
+    deco: { title: [R(60, 470, 840, 1, '#3a3a3e'), O(866, 452, 36, 36, '#f4f4f2')], content: [R(60, 118, 44, 4, '#f4f4f2'), R(60, 500, 840, 1, '#2c2c30')], section: [R(0, 0, 14, 540, '#f4f4f2')] } },
+  gray: { name: '그레이', bg: '#ececea', fg: '#18181a', sub: '#6b6c70', accent: '#18181a', deco: { title: [], content: [], section: [] } },
+  beige: { name: '소프트 베이지', bg: '#f6f1e9', fg: '#2e2a25', sub: '#8a8075', accent: '#c9a27e',
+    deco: { title: [O(640, 300, 420, 420, '#ece2d3'), O(-120, -160, 320, 320, '#efe6d9'), R(450, 140, 60, 4, '#c9a27e')], content: [O(820, -80, 220, 220, '#efe6d9'), R(60, 118, 44, 4, '#c9a27e')], section: [O(560, 120, 520, 520, '#ece2d3')] } },
+  blue: { name: '클린 블루', bg: '#f5f8fd', fg: '#15233c', sub: '#66748c', accent: '#3d6fe0',
+    deco: { title: [R(0, 0, 960, 12, '#3d6fe0'), R(820, 400, 90, 90, '#dbe6fb', 18), R(870, 450, 40, 40, '#3d6fe0', 10)], content: [R(0, 0, 960, 6, '#3d6fe0'), R(60, 118, 44, 4, '#3d6fe0')], section: [R(0, 0, 480, 540, '#3d6fe0')] } },
+  forest: { name: '포레스트', bg: '#1e3a2f', fg: '#f4f1e8', sub: '#b6c3b5', accent: '#d8b26a',
+    deco: { title: [R(40, 40, 70, 3, '#d8b26a'), R(40, 40, 3, 70, '#d8b26a'), R(850, 497, 70, 3, '#d8b26a'), R(917, 430, 3, 70, '#d8b26a')], content: [R(60, 118, 44, 4, '#d8b26a')], section: [R(80, 230, 6, 150, '#d8b26a')] } },
+  coral: { name: '코랄 팝', bg: '#fff5ef', fg: '#2a1f1b', sub: '#8c756c', accent: '#ff6f4e',
+    deco: { title: [R(0, 0, 22, 540, '#ff6f4e'), O(760, 60, 140, 140, '#ffd9cc'), O(840, 140, 60, 60, '#ff6f4e')], content: [R(0, 0, 10, 540, '#ff6f4e'), R(60, 118, 44, 4, '#ff6f4e')], section: [O(-180, 140, 460, 460, '#ffd9cc')] } },
+  lavender: { name: '라벤더', bg: '#f4f1fb', fg: '#241e36', sub: '#7b7394', accent: '#8b6fd6',
+    deco: { title: [O(-140, -140, 420, 420, '#e6defa'), O(780, 360, 260, 260, '#ece6fb'), O(140, 120, 22, 22, '#8b6fd6')], content: [O(860, -60, 180, 180, '#e6defa'), R(60, 118, 44, 4, '#8b6fd6')], section: [O(600, -80, 480, 480, '#e6defa')] } },
+  navy: { name: '네이비 골드', bg: '#1d2b44', fg: '#f3f5f9', sub: '#b7c2d6', accent: '#f2c230',
+    deco: { title: [R(430, 140, 100, 4, '#f2c230'), R(0, 524, 960, 16, '#f2c230')], content: [R(60, 118, 44, 4, '#f2c230')], section: [] } },
+  mono: { name: '모노 그리드', bg: '#f2f2f0', fg: '#111113', sub: '#6d6e72', accent: '#111113',
+    deco: { title: [R(60, 60, 120, 120, '#111113'), R(780, 360, 120, 120, '#ffffff'), R(820, 400, 80, 80, '#111113')], content: [R(860, 40, 40, 40, '#111113'), R(60, 118, 44, 4, '#111113')], section: [R(0, 0, 480, 540, '#111113')] } },
 };
+// a slide's decoration for its template; section slides on a dark block get light text
+function decoFor(theme, kind) { return ((THEMES[theme] || THEMES.white).deco?.[kind] || []).map(d => ({ id: uid(), deco: true, ...d })); }
+const SECTION_ON_BLOCK = { blue: true, mono: true };
 const FONT = '"Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif';
 
 function textEl(x, y, w, hgt, html, size, extra = {}) { return { id: uid(), type: 'text', x, y, w, h: hgt, html, size, bold: false, align: 'left', ...extra }; }
 function layout(kind, theme, d = {}) {
   const t = THEMES[theme] || THEMES.white;
-  const els = [];
+  const els = decoFor(theme, kind);
   if (kind === 'title') {
     els.push(textEl(80, 170, 800, 120, d.title || '제목을 입력하세요', 54, { bold: true, align: 'center', color: t.fg }));
     els.push(textEl(120, 300, 720, 70, d.subtitle || '부제목', 26, { align: 'center', color: t.sub }));
   } else if (kind === 'section') {
-    els.push({ id: uid(), type: 'rect', x: 80, y: 250, w: 80, h: 6, fill: t.accent });
-    els.push(textEl(76, 270, 800, 110, d.title || '구역 제목', 48, { bold: true, color: t.fg }));
+    const onBlock = SECTION_ON_BLOCK[theme];
+    if (!onBlock) els.push({ id: uid(), type: 'rect', x: 80, y: 250, w: 80, h: 6, fill: t.accent });
+    els.push(textEl(onBlock ? 60 : 76, 270, onBlock ? 380 : 800, 110, d.title || '구역 제목', 48, { bold: true, color: onBlock ? t.bg : t.fg }));
   } else if (kind === 'content') {
     els.push(textEl(60, 40, 840, 80, d.title || '제목', 38, { bold: true, color: t.fg }));
     const items = d.bullets?.length ? d.bullets : ['첫 번째 내용', '두 번째 내용', '세 번째 내용'];
     els.push(textEl(70, 140, 820, 360, `<ul>${items.map(b => `<li>${b.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</li>`).join('')}</ul>`, 26, { color: t.fg }));
   }
-  return { id: uid(), bg: t.bg, els, notes: d.notes || '' };
+  return { id: uid(), kind, bg: t.bg, els, notes: d.notes || '' };
 }
 
 function renderSlide(s, { interactive = false, selected } = {}) {
@@ -108,7 +131,7 @@ export function mountSlides(host, doc, { onChange }) {
       e ? group(tb('front', '맨 앞으로', () => { const a = slide().els; a.push(...a.splice(a.indexOf(e), 1)); refresh(); }), tb('back', '맨 뒤로', () => { const a = slide().els; a.unshift(...a.splice(a.indexOf(e), 1)); refresh(); }),
         tb('x', '요소 삭제 (Delete)', () => { slide().els = slide().els.filter(x => x !== e); selId = null; refresh(); })) : null,
       group(colorBtn('palette', '배경색', slide().bg, v => { slide().bg = v; refresh(); }),
-        h('select', { class: 'tb-select', 'aria-label': '테마', onchange: ev => applyTheme(ev.target.value) }, Object.entries(THEMES).map(([k, v]) => h('option', { value: k, selected: k === c.theme }, `테마: ${v.name}`)))),
+        h('button', { class: 'btn btn-glass btn-sm', title: '템플릿 고르기', onclick: pickTemplate }, icon('sparkle', 15), `템플릿 · ${(THEMES[c.theme] || THEMES.white).name}`)),
       group(h('button', { class: 'btn btn-ink btn-sm', onclick: present }, icon('present', 15), '발표하기')));
   }
   function refresh() { paintStage(); paintToolbar(); changed(); }
@@ -131,17 +154,39 @@ export function mountSlides(host, doc, { onChange }) {
     if (d.querySelector('li')) e.html = [...d.querySelectorAll('li')].map(li => li.innerHTML).join('<br>');
     else e.html = `<ul>${d.innerHTML.split(/<br\s*\/?>|<\/div>|<\/p>/i).map(x => x.replace(/<\/?(div|p)>/gi, '').trim()).filter(Boolean).map(x => `<li>${x}</li>`).join('')}</ul>`;
   }
+  // switch the whole deck to another template: colours follow, the old decoration goes, the new one comes in
   function applyTheme(key) {
-    const old = THEMES[c.theme], t = THEMES[key];
+    const oldKey = c.theme, old = THEMES[oldKey] || THEMES.white, t = THEMES[key];
     c.theme = key;
     c.slides.forEach(s => {
       if (s.bg === old.bg) s.bg = t.bg;
+      s.els = s.els.filter(e => !e.deco);
+      const block = s.kind === 'section' && SECTION_ON_BLOCK[key], wasBlock = s.kind === 'section' && SECTION_ON_BLOCK[oldKey];
       s.els.forEach(e => {
-        if (e.type === 'text') e.color = e.color === old.sub ? t.sub : e.color === old.fg || !e.color ? t.fg : e.color;
+        if (e.type === 'text') e.color = e.color === old.sub ? t.sub : e.color === old.fg || !e.color || (wasBlock && e.color === old.bg) ? (block ? t.bg : t.fg) : e.color;
         if ((e.type === 'rect' || e.type === 'ellipse') && e.fill === old.accent) e.fill = t.accent;
       });
+      // a section title sits inside the coloured block on templates that have one
+      const head = s.kind === 'section' && s.els.find(e => e.type === 'text');
+      if (head && block !== wasBlock) Object.assign(head, block ? { x: 60, w: 380 } : { x: 76, w: 800 });
+      if (s.kind) s.els.unshift(...decoFor(key, s.kind));
     });
     refresh();
+  }
+  // template gallery: each template's cover, drawn small
+  function pickTemplate() {
+    const PW = 208;
+    const m = modal({
+      title: '템플릿', wide: true,
+      body: h('div', { class: 'col' },
+        h('p', { class: 'small muted', style: { margin: 0 } }, '고르면 모든 슬라이드의 색과 장식이 바뀌어요. 내용은 그대로예요.'),
+        h('div', { class: 'tpl-grid' }, Object.entries(THEMES).map(([k, v]) => {
+          const st = renderSlide(layout('title', k, { title: v.name, subtitle: '제목 슬라이드' }));
+          Object.assign(st.style, { transform: `scale(${PW / W})`, transformOrigin: '0 0', position: 'absolute', left: 0, top: 0 });
+          return h('button', { class: 'tpl' + (k === c.theme ? ' on' : ''), type: 'button', onclick: () => { applyTheme(k); m.close(); toast(`"${v.name}" 템플릿을 입혔어요.`); } },
+            h('span', { class: 'tpl-pv', style: { width: PW + 'px', height: (PW * H) / W + 'px' } }, st), h('span', { class: 'tpl-name' }, v.name));
+        }))),
+    });
   }
 
   // ----- direct manipulation -----

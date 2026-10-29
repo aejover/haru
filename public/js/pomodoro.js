@@ -1,5 +1,7 @@
 // pomodoro.js — global timer engine (keeps running on every tab) and the 뽀모도로 view.
 import { h, icon, store, commit, bus, dkey, addDays, fmtClock, fmtDur, fmtShort, gainXP, chime, desktopNotify, toast, seg, switchEl, barChart } from './core.js';
+import { pager } from './pager.js';
+import nap from './views/nap.js';
 
 // "long" is the 식사 시간 (meal break): picked by hand, never inserted automatically.
 export const MODES = { focus: '집중', short: '짧은 휴식', long: '식사 시간' };
@@ -31,10 +33,13 @@ function credit() {
   if (dt > 0) { const k = dkey(); store.s.focus[k] = (store.s.focus[k] || 0) + dt; }
   p.lastTick = now;
 }
-// Focus sessions open with a 3-second countdown; breaks start right away.
+// Only the very first focus session opens with the 3-second countdown. A focus that follows a break, or a
+// paused session picking up again, starts right away, and so do breaks.
 export function start() {
   const p = P(); if (p.running || p.pre) return;
-  if (p.mode === 'focus') { p.pre = Date.now() + COUNTDOWN * 1000; p.owner = store.clientId; lastBeep = 0; }
+  const midCycle = p.chain && Date.now() - p.chain < 2 * 3600e3; // a cycle left alone for hours starts over
+  const fresh = p.mode === 'focus' && !midCycle && p.remain >= durOf('focus');
+  if (fresh) { p.pre = Date.now() + COUNTDOWN * 1000; p.owner = store.clientId; lastBeep = 0; }
   else { begin(); chime('tick'); }
   commit('pomo');
 }
@@ -46,8 +51,8 @@ export function pause() {
   commit('pomo');
 }
 export const toggle = () => (P().running || P().pre ? pause() : start());
-export function reset() { const p = P(); credit(); p.pre = 0; p.running = false; p.remain = durOf(p.mode); commit('pomo'); }
-export function setMode(m) { const p = P(); credit(); p.pre = 0; p.mode = m; p.running = false; p.remain = durOf(m); commit('pomo'); }
+export function reset() { const p = P(); credit(); p.pre = 0; p.chain = 0; p.running = false; p.remain = durOf(p.mode); commit('pomo'); }
+export function setMode(m) { const p = P(); credit(); p.pre = 0; p.chain = 0; p.mode = m; p.running = false; p.remain = durOf(m); commit('pomo'); }
 export const skip = () => complete(true);
 
 function complete(skipped) {
@@ -57,10 +62,8 @@ function complete(skipped) {
   if (was === 'focus' && !skipped) { p.cycle++; p.sessions ||= {}; const k = dkey(); p.sessions[k] = (p.sessions[k] || 0) + 1; gainXP('pomodoro'); }
   const next = was === 'focus' ? 'short' : 'focus';
   p.mode = next; p.remain = durOf(next); p.pre = 0; p.running = false;
-  if (!skipped && cfg().auto) {
-    if (next === 'focus') { p.pre = Date.now() + COUNTDOWN * 1000; lastBeep = 0; }
-    else begin();
-  }
+  p.chain = Date.now(); // mid-cycle now: the next focus starts without the countdown
+  if (!skipped && cfg().auto) begin();
   if (!skipped) {
     if (cfg().sound) { chime('end'); setTimeout(() => chime('end'), 1300); }
     const title = was === 'focus' ? '집중 시간 끝!' : '휴식 끝!';
@@ -113,7 +116,18 @@ function stepper(value, min, max, step, onChange, unit = '분') {
 
 export default {
   id: 'pomodoro', title: '뽀모도로', icon: 'timer',
-  render(el, ctx) {
+  // 뽀모도로 and 파워냅 side by side: #pomodoro, #pomodoro/nap (#nap still lands here)
+  render(el, ctx, arg) {
+    const pg = pager(ctx, [
+      { id: 'focus', title: '뽀모도로', render: b => renderPomo(b, ctx) },
+      { id: 'nap', title: '파워냅', render: b => nap.render(b, ctx) },
+    ], { start: arg === 'nap' ? 1 : 0, base: 'pomodoro' });
+    el.append(pg.el);
+  },
+};
+
+function renderPomo(el, ctx) {
+  {
     el.classList.add('stagger');
     const R = 146, C = 2 * Math.PI * R, W = 24;
     const fill = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -186,5 +200,5 @@ export default {
     paint(); paintChart();
     ctx.on('pomo-tick', paint);
     ctx.on('change', w => { if (w === 'pomo') { paint(); modeSeg.set(P().mode); paintChart(); } });
-  },
-};
+  }
+}

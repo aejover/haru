@@ -8,6 +8,7 @@ import { applyTheme, isStandalone, canInstall, promptInstall } from '../main.js'
 import { searchCity, clearWeatherCache } from '../weather.js';
 import { googleConfigured, googleLinked, googleSignIn, googleSignOut } from '../google.js';
 import { phoneInfo, phoneCard } from '../phone.js';
+import { REMINDS, remindLabel } from './edit-item.js';
 
 // web version: how to use 하루 on another device, and (optionally) hooking up to a computer running the 하루 server
 function localDevices() {
@@ -154,6 +155,8 @@ export default {
         row('알림 받는 시간', '이 시간 사이에만 독촉 알림이 가요', h('div', { class: 'row', style: { gap: '6px' } }, numIn('nagStart', 0, 23, '시부터'), numIn('nagEnd', 1, 24, '시까지'))),
         row('아침 일정 브리핑', '일정이 있는 날 Claude가 보내는 알림 시각', numIn('briefHour', 5, 12, '시')),
         row('일정 미리 알림', '시간이 정해진 일정', numIn('eventLead', 0, 180, '분 전')),
+        row('할 일 미리 알림', '시간을 정한 할 일 · 할 일마다 따로 바꿀 수도 있어요', h('select', { class: 'select', style: { width: 'auto' }, 'aria-label': '할 일 미리 알림 기본값', onchange: e => { S.taskLead = Number(e.target.value); commit('settings'); toast(`할 일 미리 알림: ${remindLabel(S.taskLead)}`); } },
+          REMINDS.map(([v, l]) => h('option', { value: v, selected: Number(S.taskLead ?? 60) === v }, l)))),
         row('녹음할 때 자동 받아쓰기', 'Chrome · Edge에서 동작해요', switchEl(S.sttAuto, v => { S.sttAuto = v; commit('settings'); })),
         h('div', { class: 'nav-sep', style: { margin: '10px 0' } }),
         h('h3', { class: 'h3' }, '휴대폰 알림 (ntfy)'),

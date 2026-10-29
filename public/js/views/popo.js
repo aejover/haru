@@ -79,30 +79,44 @@ export function popoPage(ctx) {
     timer = setTimeout(() => { stage.className = 'popo-stage'; fx.replaceChildren(); paintIdle(); }, 6500);
   }
 
-  // 배 쓰다듬기: rub the belly (finger or mouse) and 포포 wriggles happily — no words, just hearts
+  // 배 쓰다듬기: rub the belly (finger or mouse) and 포포 squirms with joy — no words, just hearts popping
+  // out under the finger, a nuzzle, a blush, an open-mouthed grin and a little hop when you stop
   const holder = h('div', { class: 'popo-holder', title: '포포 배를 쓰다듬어 보세요' }, stage, fx);
-  let rub = null, petTimer = null, petting = false;
+  let rub = null, petTimer = null, petting = false, lastHeart = 0;
   const onBelly = e => {
-    const r = stage.getBoundingClientRect(); // belly: circle at (100,170) r62 in the 200×250 drawing
+    const r = stage.getBoundingClientRect(); // belly: circle at (100,176) r57 in the 200×250 drawing
     const x = ((e.clientX - r.left) / r.width) * 200, y = ((e.clientY - r.top) / r.height) * 250;
-    return Math.hypot(x - 100, y - 170) < 70;
+    return Math.hypot(x - 100, y - 176) < 66;
+  };
+  const heart = e => {
+    const r = holder.getBoundingClientRect();
+    const el = h('i', { class: 'pet-heart', style: { left: `${e.clientX - r.left}px`, top: `${e.clientY - r.top}px`, fontSize: `${16 + Math.random() * 12}px`, '--dx': `${(Math.random() - 0.5) * 60}px`, '--rot': `${(Math.random() - 0.5) * 40}deg` } }, pick(['♥', '♥', '♡', '✦']));
+    holder.append(el);
+    el.addEventListener('animationend', () => el.remove());
   };
   holder.addEventListener('pointerdown', e => { if (onBelly(e)) { rub = { x: e.clientX, y: e.clientY, dist: 0 }; holder.setPointerCapture?.(e.pointerId); } });
   holder.addEventListener('pointermove', e => {
     if (!rub) return;
     rub.dist += Math.hypot(e.clientX - rub.x, e.clientY - rub.y); rub.x = e.clientX; rub.y = e.clientY;
-    if (rub.dist < 60) return;
+    if (rub.dist < 40) return;
     if (!petting) {
       petting = true; clearTimeout(timer);
       stage.className = 'popo-stage pet';
       fx.replaceChildren(...Array.from({ length: 5 }, (_, i) => h('i', { class: 'fx-tired', style: { left: `${20 + i * 15}%`, animationDelay: `${i * 0.25}s` } }, '♥')));
+      navigator.vibrate?.(12);
     }
+    if (Date.now() - lastHeart > 160) { lastHeart = Date.now(); heart(e); }
     clearTimeout(petTimer);
     petTimer = setTimeout(endPet, 900);
   });
   const stopRub = () => { rub = null; };
   holder.addEventListener('pointerup', stopRub); holder.addEventListener('pointercancel', stopRub);
-  function endPet() { petting = false; stage.className = 'popo-stage'; setTimeout(() => { if (!petting) fx.replaceChildren(); }, 1600); }
+  function endPet() {
+    petting = false;
+    stage.className = 'popo-stage pet-end'; // one happy hop, then back to normal
+    setTimeout(() => { if (!petting && stage.classList.contains('pet-end')) stage.className = 'popo-stage'; }, 750);
+    setTimeout(() => { if (!petting) fx.replaceChildren(); }, 1600);
+  }
   ctx.cleanup(() => clearTimeout(petTimer));
 
   page.append(
