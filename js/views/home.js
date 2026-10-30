@@ -9,6 +9,9 @@ import { editTask, editEvent } from './edit-item.js';
 import { googleConfigured, googleLinked, googleSignIn, gmailSummary } from '../google.js';
 import { popoPage } from './popo.js';
 
+// the six-armed asterisk on the hero card (in the accent colour)
+const MARK = '<svg viewBox="0 0 24 24" width="22" height="22"><g stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v18"/><path d="M4.2 7.5l15.6 9"/><path d="M4.2 16.5l15.6-9"/></g></svg>';
+
 export function taskRow(t, k, { onChange, hideGoal } = {}) {
   const done = isDone(t, k);
   const goal = t.goalId && !hideGoal ? (store.s.goals || []).find(g => g.id === t.goalId) : null;
@@ -55,11 +58,13 @@ export default {
     // ----- clock & weather -----
     const clock = h('h1', { class: 'clock', 'aria-live': 'off' });
     const dateEl = h('div', { class: 'hero-date' });
+    const year = h('span', { class: 'hero-year num' });
     const weather = h('button', { class: 'weather', title: '눌러서 새로고침', onclick: () => loadWeather(true) }, h('span', null, '날씨 불러오는 중…'));
     const tick = () => {
       const d = new Date();
       clock.innerHTML = `${pad(d.getHours())}:${pad(d.getMinutes())}<span class="sec">${pad(d.getSeconds())}</span>`;
-      dateEl.textContent = fmtDay(dkey(d), true);
+      dateEl.textContent = fmtDay(dkey(d), true).replace(/^\d{4}년\s*/, '');
+      year.textContent = d.getFullYear();
     };
     tick(); ctx.every(1000, tick);
     async function loadWeather(force) {
@@ -246,7 +251,10 @@ export default {
 
     // two pages side by side: the usual home, and 포포 one swipe to the right
     const main = h('div', { class: 'home-main stagger' },
-      h('section', { class: 'hero' }, clock, dateEl, weather, ddays),
+      // the clock as a small glass poster: mark and year in the corners, the date in an outline pill
+      h('section', { class: 'hero glass' },
+        h('div', { class: 'hero-top' }, h('span', { class: 'hero-mark', 'aria-hidden': 'true', html: MARK }), h('span', { class: 'hero-brand' }, '하루'), h('span', { class: 'spacer' }), year),
+        dateEl, clock, weather, ddays),
       mail, mottoBox, swipeCard, pendingCard, progress);
     const popo = popoPage(ctx);
     const track = h('div', { class: 'home-track' }, main, popo.page);
