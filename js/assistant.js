@@ -14,7 +14,7 @@ const TOOLS = [
   { name: 'add_task', description: '할 일 또는 매일 하는 루틴을 추가한다. kind=once는 특정 날짜에 한 번, daily는 매일(또는 days 요일마다) 반복. mode=nag는 안 하면 계속 알림을 보내는 독촉 모드.', input_schema: { type: 'object', properties: { title: { type: 'string' }, kind: { type: 'string', enum: ['once', 'daily'] }, date: DATE, time: { type: 'string', description: 'HH:MM' }, mode: { type: 'string', enum: ['normal', 'nag'] }, days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: '반복 요일 (0=일요일 … 6=토요일). 비우면 매일' } }, required: ['title', 'kind'] } },
   { name: 'complete_task', description: '제목이 일치하거나 포함된 할 일을 완료(또는 완료 취소) 처리한다.', input_schema: { type: 'object', properties: { title: { type: 'string' }, date: DATE, done: { type: 'boolean' } }, required: ['title'] } },
   { name: 'list_tasks', description: '특정 날짜의 할 일·루틴과 완료 여부를 가져온다.', input_schema: { type: 'object', properties: { date: DATE } } },
-  { name: 'add_event', description: '캘린더에 일정을 추가한다. 일정 당일 아침에 휴대폰 알림이 간다.', input_schema: { type: 'object', properties: { title: { type: 'string' }, date: DATE, time: { type: 'string', description: 'HH:MM, 종일이면 생략' }, note: { type: 'string' } }, required: ['title', 'date'] } },
+  { name: 'add_event', description: '캘린더에 일정을 추가한다. 여러 날 이어지는 일정(여행, 시험 기간)은 endDate에 마지막 날을 넣는다. 일정 당일 아침에 휴대폰 알림이 간다.', input_schema: { type: 'object', properties: { title: { type: 'string' }, date: { ...DATE, description: '시작일 YYYY-MM-DD' }, endDate: { ...DATE, description: '여러 날 일정의 마지막 날 YYYY-MM-DD, 하루면 생략' }, time: { type: 'string', description: 'HH:MM, 종일이면 생략' }, note: { type: 'string' } }, required: ['title', 'date'] } },
   { name: 'list_events', description: '기간 안의 캘린더 일정을 가져온다.', input_schema: { type: 'object', properties: { from: DATE, to: DATE } } },
   { name: 'add_memo', description: '메모장에 새 메모를 만든다.', input_schema: { type: 'object', properties: { title: { type: 'string' }, text: { type: 'string' } }, required: ['title', 'text'] } },
   { name: 'write_diary', description: '일기를 작성하거나 같은 날짜의 일기를 덮어쓴다. rating: 5=최고의 날, 4=좋은 날, 3=보통 날, 2=안 좋은 날, 1=최악의 날.', input_schema: { type: 'object', properties: { date: DATE, title: { type: 'string' }, body: { type: 'string' }, emotion: { type: 'string' }, rating: { type: 'integer', minimum: 1, maximum: 5 } }, required: ['title', 'body'] } },
@@ -81,13 +81,13 @@ function runTool(name, input) {
       return { date: k, tasks: tasksOn(k).map(t => ({ title: t.title, kind: t.kind, time: t.time || null, mode: t.mode, done: isDone(t, k) })) };
     }
     case 'add_event': {
-      const ev = { id: uid(), title: input.title, date: input.date, time: input.time || '', note: input.note || '', source: 'claude' };
+      const ev = { id: uid(), title: input.title, date: input.date, ...(input.endDate > input.date ? { endDate: input.endDate } : {}), time: input.time || '', note: input.note || '', source: 'claude' };
       s.events.push(ev); gainXP('calendar'); commit('events');
       return { ok: true, event: ev };
     }
     case 'list_events': {
       const from = input.from || today, to = input.to || addDays(from, 7);
-      return { events: s.events.filter(e => e.date >= from && e.date <= to).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).map(e => ({ title: e.title, date: e.date, time: e.time, note: e.note })) };
+      return { events: s.events.filter(e => e.date <= to && (e.endDate || e.date) >= from).sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).map(e => ({ title: e.title, date: e.date, endDate: e.endDate, time: e.time, note: e.note })) };
     }
     case 'add_memo': {
       const html = String(input.text).split('\n').map(l => `<div>${l.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) || '<br>'}</div>`).join('');

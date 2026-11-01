@@ -1,8 +1,8 @@
-﻿// calendar.js — 시간표 first, swipe over for the month: 일정 · 할 일 · 루틴 · 디데이, the month swipes sideways,
+﻿// calendar.js — the month first, swipe over for 시간표: 일정 (one day or several) · 할 일 · 루틴 · 디데이, the month swipes sideways,
 // plus the "이미지 캘린더": drop a schedule photo above the grid and Claude reads it into events.
 import {
   h, icon, store, commit, uid, dkey, addDays, fromKey, fmtDay, fmtShort, monthKey, WEEK, seg, checkEl, toast, modal, upload, pickFiles,
-  tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj, ddayLabel, ddayN,
+  tasksOn, isDone, setDone, addTask, removeTask, gainXP, ai, jsonOf, aiFail, urlToBlock, obj, ddayLabel, ddayN, eventsOn, eventSpan,
 } from '../core.js';
 import { editEvent, editTask } from './edit-item.js';
 import { openViewer } from '../viewer.js';
@@ -19,15 +19,25 @@ function bigMonth(ym, sel, onPick) {
   for (let i = 0; i < 42; i++) {
     const k = addDays(start, i), d = fromKey(k);
     if (i >= 35 && d.getMonth() !== m - 1) break;
-    const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+    // several-day 일정 first, so their bars line up from one day to the next
+    const evs = eventsOn(k).sort((a, b) => !!b.endDate - !!a.endDate);
     const todos = s.tasks.filter(t => t.kind === 'once' && t.date === k);
     const routines = tasksOn(k).filter(t => t.kind === 'daily');
     const dds = (s.ddays || []).filter(x => x.date === k);
     // tapping an item in the month grid opens its editor (tapping the empty part of the day selects it)
     const open = fn => ev => { ev.stopPropagation(); onPick(k); fn(); };
+    // a several-day 일정 is one bar across its days: the title on its first day and at the start of each week
+    const evEl = e => {
+      const span = !!e.endDate && e.endDate > e.date;
+      const label = !span || k === e.date || i % 7 === 0 ? (e.time && k === e.date ? e.time + ' ' : '') + e.title : ' ';
+      return h('div', {
+        class: 'cal-ev' + (e.source === 'image' ? ' ai' : '') + (span ? ' span' + (k === e.date ? ' first' : '') + (k === e.endDate || i % 7 === 6 ? ' last' : '') : ''),
+        title: span ? `${e.title} · ${eventSpan(e)}` : '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))),
+      }, label);
+    };
     const items = [
       ...dds.map(x => h('div', { class: 'cal-ev dday' }, `${x.title}`)),
-      ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : ''), title: '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))) }, (e.time ? e.time + ' ' : '') + e.title)),
+      ...evs.map(evEl),
       ...todos.map(t => h('div', { class: 'cal-ev todo', title: '눌러서 수정', onclick: open(() => editTask(t, () => onPick(k))) }, (isDone(t, k) ? '✓ ' : '') + t.title)),
     ];
     const max = 3;
@@ -49,6 +59,7 @@ const EXTRACT = obj({
     type: 'array', items: obj({
       title: { type: 'string' },
       date: { type: 'string', description: 'YYYY-MM-DD. 매주 반복이면 첫 날짜' },
+      endDate: { type: 'string', description: '여러 날 이어지는 event(방학, 시험 기간, 여행)면 마지막 날 YYYY-MM-DD, 아니면 빈 문자열' },
       time: { type: 'string', description: 'HH:MM, 없으면 빈 문자열' },
       kind: { type: 'string', enum: ['event', 'todo', 'routine'] },
       days: { type: 'array', items: { type: 'integer' }, description: 'routine일 때 반복 요일(0=일…6=토), 아니면 빈 배열' },
@@ -59,14 +70,13 @@ const EXTRACT = obj({
 
 export default {
   id: 'calendar', title: '캘린더', icon: 'calendar',
-  // 시간표 comes first and the month is one swipe over: #calendar, #calendar/month, #calendar/<date>
-  // (#timetable still lands here)
+  // the month comes first and 시간표 is one swipe over: #calendar, #calendar/<date>, #calendar/timetable
+  // (#timetable still lands there)
   render(el, ctx, arg) {
-    const toMonth = arg === 'month' || /^\d{4}-\d{2}-\d{2}$/.test(arg || '');
     const pg = pager(ctx, [
-      { id: 'timetable', title: '시간표', render: b => timetable.render(b, ctx) },
       { id: 'month', title: '캘린더', render: b => renderMonth(b, ctx, arg) },
-    ], { start: toMonth ? 1 : 0, base: 'calendar' });
+      { id: 'timetable', title: '시간표', render: b => timetable.render(b, ctx) },
+    ], { start: arg === 'timetable' ? 1 : 0, base: 'calendar' });
     el.append(pg.el);
   },
 };
@@ -108,6 +118,7 @@ function renderMonth(el, ctx, arg) {
         if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw.dead = true; return; }
         if (Math.abs(dx) < 10) return;
         sw.on = true; gridBox.classList.add('dragging'); getSelection().removeAllRanges();
+        try { gridBox.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       }
       const g = gridBox.firstChild;
       if (g) { g.style.transform = `translateX(${dx}px)`; g.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 500)); }
@@ -198,7 +209,7 @@ function renderMonth(el, ctx, arg) {
           data.summary ? h('p', { class: 'small muted', style: { margin: 0 } }, data.summary) : null,
           h('div', null, items.map((x, i) => h('div', { class: 'item-row' },
             checkEl(true, v => { v ? picked.add(i) : picked.delete(i); }, x.title),
-            h('span', { class: 'chip sm line num' }, x.date.slice(5).replace('-', '/') + (x.time ? ' ' + x.time : '')),
+            h('span', { class: 'chip sm line num' }, x.date.slice(5).replace('-', '/') + (x.kind === 'event' && x.endDate > x.date ? ' ~ ' + x.endDate.slice(5).replace('-', '/') : '') + (x.time ? ' ' + x.time : '')),
             h('span', { class: 'grow' }, x.title, x.note ? h('span', { class: 'small muted' }, ` · ${x.note}`) : null),
             h('span', { class: 'chip sm' }, kindName[x.kind] + (x.kind === 'routine' && x.days?.length ? ` ${x.days.map(d => WEEK[d]).join('')}` : ''))))),
           h('p', { class: 'small muted', style: { margin: 0 } }, '체크한 항목만 캘린더에 추가돼요. 일정이 있는 날 아침에 휴대폰으로 알림이 가요.')),
@@ -207,7 +218,7 @@ function renderMonth(el, ctx, arg) {
             let n = 0;
             items.forEach((x, i) => {
               if (!picked.has(i)) return;
-              if (x.kind === 'event') s.events.push({ id: uid(), title: x.title, date: x.date, time: x.time || '', note: x.note || '', source: 'image' });
+              if (x.kind === 'event') s.events.push({ id: uid(), title: x.title, date: x.date, ...(/^\d{4}-\d{2}-\d{2}$/.test(x.endDate || '') && x.endDate > x.date ? { endDate: x.endDate } : {}), time: x.time || '', note: x.note || '', source: 'image' });
               else addTask({ title: x.title, kind: x.kind === 'routine' ? 'daily' : 'once', date: x.date, time: x.time || undefined, days: x.kind === 'routine' ? x.days : undefined });
               n++;
             });
@@ -223,34 +234,45 @@ function renderMonth(el, ctx, arg) {
     function paintGrid() { gridBox.replaceChildren(bigMonth(ym, sel, k => { sel = k; if (k.slice(0, 7) !== ym) ym = k.slice(0, 7); paintAll(); })); }
     function paintPanel() {
       const k = sel;
-      const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+      const evs = eventsOn(k);
       const list = tasksOn(k);
       const f = { type: 'event', mode: 'normal', days: [fromKey(k).getDay()] };
       const title = h('input', { class: 'input', placeholder: '제목', 'aria-label': '제목', onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) add(); } });
       const time = h('input', { class: 'input', type: 'time', 'aria-label': '시간', style: { width: '130px' } });
       const note = h('input', { class: 'input', placeholder: '메모 (장소, 준비물…)', 'aria-label': '메모' });
+      // 며칠부터 며칠까지: the first day is the picked one; leave the last day as is for a one-day 일정
+      const from = h('input', { class: 'input', type: 'date', value: k, 'aria-label': '시작일', onchange: () => { if (!to.value || to.value < from.value) to.value = from.value; } });
+      const to = h('input', { class: 'input', type: 'date', value: k, 'aria-label': '종료일', onchange: () => { if (to.value && from.value && to.value < from.value) from.value = to.value; } });
+      const range = h('div', { class: 'date-range' }, from, h('span', { class: 'muted' }, '~'), to);
       const dayRow = h('div', { class: 'row wrap', style: { gap: '6px' }, hidden: true }, WEEK.map((w, i) => {
         const b = h('button', { class: 'chip sm ' + (f.days.includes(i) ? 'ink' : 'line'), onclick: () => { f.days = f.days.includes(i) ? f.days.filter(x => x !== i) : [...f.days, i]; b.className = 'chip sm ' + (f.days.includes(i) ? 'ink' : 'line'); } }, w);
         return b;
       }));
       const nagSeg = seg([['normal', '일반'], ['nag', '독촉']], 'normal', v => { f.mode = v; });
       nagSeg.hidden = true;
-      const typeSeg = seg([['event', '일정'], ['todo', '할 일'], ['routine', '루틴']], 'event', v => { f.type = v; dayRow.hidden = v !== 'routine'; nagSeg.hidden = v === 'event'; note.hidden = v !== 'event'; });
+      const typeSeg = seg([['event', '일정'], ['todo', '할 일'], ['routine', '루틴']], 'event', v => { f.type = v; dayRow.hidden = v !== 'routine'; nagSeg.hidden = v === 'event'; note.hidden = range.hidden = v !== 'event'; addBtn.lastChild.textContent = v === 'event' ? '일정 추가' : '이 날에 추가'; });
       function add() {
         const t = title.value.trim(); if (!t) { title.focus(); return; }
-        if (f.type === 'event') { s.events.push({ id: uid(), title: t, date: k, time: time.value, note: note.value.trim(), source: 'manual' }); commit('events'); gainXP('calendar'); }
+        if (f.type === 'event') {
+          const start = from.value || k, end = to.value && to.value > start ? to.value : '';
+          s.events.push({ id: uid(), title: t, date: start, ...(end ? { endDate: end } : {}), time: time.value, note: note.value.trim(), source: 'manual' });
+          commit('events'); gainXP('calendar');
+          if (end) toast(`${fmtShort(start)}부터 ${fmtShort(end)}까지 일정을 넣었어요.`, { icon: 'calendar' });
+          if (end || start !== k) { sel = start; ym = start.slice(0, 7); paintAll(); return; }
+        }
         else addTask({ title: t, kind: f.type === 'routine' ? 'daily' : 'once', date: k, time: time.value || undefined, mode: f.mode, days: f.type === 'routine' && f.days.length < 7 ? f.days : undefined });
         toast('추가했어요.', { icon: 'check' });
         paintAll();
       }
       const dds = s.ddays.filter(x => x.date === k);
+      const addBtn = h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), h('span', null, '일정 추가'));
       panel.replaceChildren(
         h('section', { class: 'glass card col' },
           h('div', { class: 'row between' }, h('h2', { class: 'h2' }, fmtDay(k)), k === dkey() ? h('span', { class: 'chip sm ink' }, '오늘') : null),
           dds.map(x => h('div', { class: 'dday-line' }, icon('flag', 15), h('b', null, x.title), h('span', { class: 'chip sm ink num' }, ddayLabel(x.date)))),
           evs.length || list.length ? h('div', null,
-            evs.map(e => h('div', { class: 'item-row' }, h('span', { class: 'type-dot' }), h('span', { class: 'chip sm line num' }, e.time || '종일'),
-              h('button', { class: 'grow item-edit', title: '눌러서 수정', onclick: () => editEvent(e, paintAll) }, e.title, e.note ? h('div', { class: 'small muted' }, e.note) : null, e.source === 'image' ? h('div', { class: 'tiny muted' }, '이미지에서 읽은 일정') : null),
+            evs.map(e => h('div', { class: 'item-row' }, h('span', { class: 'type-dot' }), h('span', { class: 'chip sm line num' }, e.time && k === e.date ? e.time : '종일'),
+              h('button', { class: 'grow item-edit', title: '눌러서 수정', onclick: () => editEvent(e, paintAll) }, e.title, eventSpan(e) ? h('div', { class: 'tiny muted num' }, eventSpan(e)) : null, e.note ? h('div', { class: 'small muted' }, e.note) : null, e.source === 'image' ? h('div', { class: 'tiny muted' }, '이미지에서 읽은 일정') : null),
               h('button', { class: 'btn-icon sm', 'aria-label': '일정 수정', title: '수정', onclick: () => editEvent(e, paintAll) }, icon('pen', 15)),
               h('button', { class: 'btn-icon sm', 'aria-label': '일정 삭제', onclick: () => { s.events = s.events.filter(x => x !== e); commit('events'); paintAll(); } }, icon('trash', 15)))),
             list.map(t => h('div', { class: 'item-row' },
@@ -262,8 +284,7 @@ function renderMonth(el, ctx, arg) {
               h('button', { class: 'btn-icon sm', 'aria-label': '삭제', onclick: () => { removeTask(t); paintAll(); } }, icon('trash', 15)))))
             : h('div', { class: 'empty' }, icon('calendar', 28), '이 날은 비어 있어요.')),
         h('section', { class: 'glass card col' },
-          h('h3', { class: 'h3' }, '추가하기'), typeSeg, title, h('div', { class: 'row wrap' }, time, nagSeg), dayRow, note,
-          h('button', { class: 'btn btn-ink', onclick: add }, icon('plus', 16), '이 날에 추가')),
+          h('h3', { class: 'h3' }, '추가하기'), typeSeg, title, range, h('div', { class: 'row wrap' }, time, nagSeg), dayRow, note, addBtn),
         ddayCard(k));
     }
 

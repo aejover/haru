@@ -135,6 +135,32 @@ export default {
     paintInstall();
     ctx.on('installable', paintInstall);
 
+    // MCP: let Claude (the desktop app, Claude Code) read and write 하루 through mcp/haru-mcp.js on this computer
+    const mcpBody = h('div', { class: 'col' }, h('span', { class: 'small muted' }, '확인 중…'));
+    const mcpBox = card('Claude 앱에서 하루 쓰기 (MCP)', mcpBody);
+    const mcpConfig = (node, script) => JSON.stringify({ mcpServers: { haru: { command: node, args: [script] } } }, null, 2);
+    const copyBtn = text => h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { try { await navigator.clipboard.writeText(text); toast('복사했어요.'); } catch { toast('복사하지 못했어요. 직접 선택해서 복사하세요.'); } } }, icon('copy', 15), '복사');
+    function paintMcp(info) {
+      const intro = h('p', { class: 'small muted', style: { margin: 0, lineHeight: 1.6 } }, 'Claude 데스크톱 앱이나 Claude Code에 하루를 연결하면, 대화하면서 할 일·일정(여러 날 일정 포함)·메모·디데이를 확인하고 추가할 수 있어요. 기록은 이 컴퓨터 밖으로 나가지 않고, 연결한 Claude가 하루 서버와 직접 주고받아요.');
+      if (!info) {
+        mcpBody.replaceChildren(intro, h('div', { class: 'guide' }, LOCAL
+          ? '이 기능은 컴퓨터에서 하루 서버(start.bat)로 쓸 때만 돼요. 웹 주소에서 "이 기기에서만"으로 쓰는 기록은 이 브라우저 안에만 있어서 Claude 앱이 볼 수 없어요. 컴퓨터에서 start.bat을 켜고 http://localhost:5500 의 설정에서 연결 방법을 확인하세요.'
+          : '하루 서버에서 MCP 정보를 받지 못했어요. 서버를 다시 켜 보세요.'));
+        return;
+      }
+      const json = mcpConfig(info.node, info.script);
+      const cli = `claude mcp add haru -- "${info.node}" "${info.script}"`;
+      mcpBody.replaceChildren(intro,
+        h('div', { class: 'row between' }, h('b', { class: 'small' }, 'Claude 데스크톱 앱'), copyBtn(json)),
+        h('p', { class: 'tiny muted', style: { margin: 0, lineHeight: 1.6 } }, 'Claude 앱 → 설정 → 개발자 → 구성 편집을 눌러 열리는 claude_desktop_config.json에 아래 내용을 넣고(이미 mcpServers가 있으면 haru 부분만 추가) Claude 앱을 다시 켜세요.'),
+        h('pre', { class: 'mcp-config' }, json),
+        h('div', { class: 'row between' }, h('b', { class: 'small' }, 'Claude Code'), copyBtn(cli)),
+        h('pre', { class: 'mcp-config' }, cli),
+        h('p', { class: 'tiny muted', style: { margin: 0, lineHeight: 1.6 } }, '하루 서버가 켜져 있으면 바뀐 내용이 열려 있는 하루 창에 곧바로 보여요. 꺼져 있을 때는 data/state.json을 직접 고치고, 다음에 서버를 켜면 반영돼요.'));
+    }
+    if (LOCAL) paintMcp(null);
+    else fetch('/api/mcp').then(r => r.ok ? r.json() : null).then(paintMcp).catch(() => paintMcp(null));
+
     el.append(
       h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '설정')),
       card('화면', row('테마', '블랙 · 화이트 반전', themeSeg)),
@@ -149,6 +175,7 @@ export default {
         h('div', { class: 'row wrap' }, keyStatus, h('span', { class: 'spacer' }), testBtn, h('button', { class: 'btn btn-ghost btn-sm btn-danger', onclick: () => saveConfig({ clearKey: true }) }, '키 삭제')),
         row('모델', null, h('div', { style: { width: 'min(300px, 55vw)' } }, modelSel)),
         h('div', { class: 'guide' }, 'API 키는 ', h('a', { href: 'https://console.anthropic.com/settings/keys', target: '_blank', rel: 'noopener' }, 'console.anthropic.com'), '에서 만들 수 있어요. 사용한 만큼 키 주인에게 요금이 청구돼요.')),
+      mcpBox,
       card('알림',
         row('데스크톱 알림', perm, h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await desktopNotify('하루 알림', '알림이 이렇게 떠요.'); paintPerm(); } }, '허용 · 테스트')),
         row('독촉 알림 간격', '독촉 모드 할 일을 당일에 몇 분마다 알릴지', numIn('nagInterval', 5, 240, '분')),

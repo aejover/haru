@@ -56,11 +56,11 @@ export function popoPage(ctx) {
         late.slice(0, 4).map(t => h('a', { class: 'popo-item', href: '#checklist' }, h('span', { class: 'grow ell' }, t.title), h('span', { class: 'chip sm line num' }, `${overdueDays(t, k)}일째`))));
     } else {
       const now = new Date(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const upcoming = (s.events || []).filter(e => e.date > k || (e.date === k && (!e.time || e.time >= hm)))
+      const upcoming = (s.events || []).filter(e => e.date > k || (e.date === k && (!e.time || e.time >= hm)) || (e.endDate && e.date < k && e.endDate >= k))
         .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '99').localeCompare(b.time || '99')).slice(0, 4);
       say.push(h('span', null, upcoming.length ? ' 밀린 독촉 할 일은 없어요, 멋져요! 앞으로 이런 일정이 있어요.' : ' 밀린 독촉 할 일도, 다가오는 일정도 없어요. 오늘은 여유롭게 보내요~'));
       info.replaceChildren(upcoming.length ? [h('div', { class: 'popo-info-head' }, icon('calendar', 15), '다가오는 일정'),
-        upcoming.map(e => h('a', { class: 'popo-item', href: `#calendar/${e.date}` }, h('span', { class: 'chip sm line num' }, e.date === k ? '오늘' : e.date === addDays(k, 1) ? '내일' : fmtShort(e.date)), h('span', { class: 'grow ell' }, e.title), e.time ? h('span', { class: 'tiny muted num' }, e.time) : null))] : null);
+        upcoming.map(e => h('a', { class: 'popo-item', href: `#calendar/${e.date}` }, h('span', { class: 'chip sm line num' }, e.date <= k ? '오늘' : e.date === addDays(k, 1) ? '내일' : fmtShort(e.date)), h('span', { class: 'grow ell' }, e.title), e.time ? h('span', { class: 'tiny muted num' }, e.time) : null))] : null);
     }
     bubble.replaceChildren(...say);
     bubble.classList.remove('mood');
@@ -80,13 +80,13 @@ export function popoPage(ctx) {
   }
 
   // 배 쓰다듬기: rub the belly (finger or mouse) and 포포 squirms with joy — no words, just hearts popping
-  // out under the finger, a nuzzle, a blush, an open-mouthed grin and a little hop when you stop
+  // out under the finger, a nuzzle, rosy cheeks, squeezed-shut eyes, a wagging tail and a little hop when you stop
   const holder = h('div', { class: 'popo-holder', title: '포포 배를 쓰다듬어 보세요' }, stage, fx);
   let rub = null, petTimer = null, petting = false, lastHeart = 0;
   const onBelly = e => {
-    const r = stage.getBoundingClientRect(); // belly: circle at (100,176) r57 in the 200×250 drawing
+    const r = stage.getBoundingClientRect(); // belly: circle at (100,182) r50 in the 200×250 drawing
     const x = ((e.clientX - r.left) / r.width) * 200, y = ((e.clientY - r.top) / r.height) * 250;
-    return Math.hypot(x - 100, y - 176) < 66;
+    return Math.hypot(x - 100, y - 182) < 60;
   };
   const heart = e => {
     const r = holder.getBoundingClientRect();
