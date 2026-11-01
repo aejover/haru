@@ -20,6 +20,12 @@ export function pager(ctx, pages, { start = 0, base } = {}) {
   const ro = new ResizeObserver(fit);
   bodies.forEach(b => ro.observe(b));
   ctx.cleanup(() => ro.disconnect());
+  // keep the page you're on exactly in place: a window resized (or maximised) mid-slide snaps straight to it,
+  // and the browser scrolling the clipped view sideways (find-in-page, focusing a field) is undone at once
+  const onResize = () => { if (!drag?.on) show(cur, { instant: true }); };
+  window.addEventListener('resize', onResize);
+  ctx.cleanup(() => window.removeEventListener('resize', onResize));
+  view.addEventListener('scroll', () => { if (view.scrollLeft) view.scrollLeft = 0; });
 
   const place = (dx = 0) => { track.style.transform = `translateX(calc(${-cur} * (100% + ${GAP}px) + ${dx}px))`; };
   function show(i, { instant = false } = {}) {
@@ -57,6 +63,8 @@ export function pager(ctx, pages, { start = 0, base } = {}) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag.dead = true; return; }
       if (Math.abs(dx) < 10) return;
       drag.on = true; track.classList.add('dragging'); getSelection().removeAllRanges();
+      // the mouse let go outside the window still ends the drag, so a page never stays half-way
+      try { view.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     }
     const edge = (cur === 0 && dx > 0) || (cur === pages.length - 1 && dx < 0);
     place(edge ? dx / 3 : dx);
@@ -74,8 +82,10 @@ export function pager(ctx, pages, { start = 0, base } = {}) {
     view.addEventListener('click', stop, { capture: true, once: true });
     setTimeout(() => view.removeEventListener('click', stop, { capture: true }), 50);
   };
-  window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
-  ctx.cleanup(() => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); });
+  const lost = () => { if (drag?.on) { drag = null; track.classList.remove('dragging'); show(cur); } };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); window.addEventListener('blur', lost);
+  view.addEventListener('lostpointercapture', e => { if (drag?.on) end(e); });
+  ctx.cleanup(() => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); window.removeEventListener('blur', lost); });
 
   show(start, { instant: true });
   return { el, show, current: () => cur, body: i => bodies[i] };

@@ -262,21 +262,23 @@ const OTTER_FEATURES = ''
 export function clawdSVG(size = 44) {
   return `<svg class="clawd" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g class="body">${OTTER_EARS}${OTTER_HEAD}${OTTER_FEATURES}</g></svg>`;
 }
-// 포포: like the plush — a wide, flat head set straight onto a chubby round body (no neck, but the head and
-// body are two shapes, with a soft shadow under the chin), a big round belly with no folds, stubby arms and
-// two little feet. The head is the same face as the Claude button, just bigger.
+// 포포: a chibi plush — the head (the Claude button's face, just bigger) is wider than the short, round body
+// it sits on, with a soft shadow under the chin, a big round belly, stubby arms, a flat otter tail peeking
+// out behind, and two little feet in front with cream toe beans.
+const FOOT = x => `<g class="foot"><ellipse cx="${x}" cy="232" rx="17" ry="9.5"/>`
+  + [-6, 0, 6].map(d => `<circle class="toe" cx="${x + d}" cy="${d ? 233.5 : 232}" r="2.3"/>`).join('') + '</g>';
 export function popoSVG() {
   return '<svg class="popo" viewBox="0 0 200 250" aria-hidden="true">'
-    + '<ellipse class="popo-shadow" cx="100" cy="244" rx="72" ry="6"/>'
+    + '<ellipse class="popo-shadow" cx="100" cy="244" rx="64" ry="6"/>'
     + '<g class="popo-all">'
-    + '<g class="popo-feet"><ellipse cx="70" cy="233" rx="19" ry="9"/><ellipse cx="130" cy="233" rx="19" ry="9"/></g>'
-    + '<path class="popo-body" d="M100 88c46 0 80 30 81 76 1 44-34 75-81 75S18 208 19 164c1-46 35-76 81-76z"/>'
-    + '<circle class="popo-belly" cx="100" cy="176" r="57"/>'
-    + '<ellipse class="popo-chin" cx="100" cy="114" rx="58" ry="10"/>'
-    + '<g class="popo-arm l"><path d="M34 146c-10-1-22 6-27 16-4 8 0 15 8 14 10-1 20-10 25-19 3-6 0-11-6-11z"/></g>'
-    + '<g class="popo-arm r"><path d="M166 146c10-1 22 6 27 16 4 8 0 15-8 14-10-1-20-10-25-19-3-6 0-11 6-11z"/></g>'
-    + '<g class="popo-head"><g transform="translate(7.2 -31.65) scale(2.9)">' + OTTER_EARS + OTTER_HEAD + OTTER_FEATURES
-    + '<ellipse class="popo-mouth" cx="32" cy="45.2" rx="2.7" ry="2.3"/></g></g>'
+    + '<path class="popo-tail" d="M150 206c24 2 40 14 39 25-1 8-14 9-27 2-11-6-18-15-12-27z"/>'
+    + '<path class="popo-body" d="M100 100c44 0 76 28 77 70 1 40-32 69-77 69S22 210 23 170c1-42 33-70 77-70z"/>'
+    + '<circle class="popo-belly" cx="100" cy="182" r="50"/>'
+    + '<ellipse class="popo-chin" cx="100" cy="130" rx="54" ry="8"/>'
+    + '<g class="popo-arm l"><path d="M40 148c-9-1-20 5-24 13-3 7 0 12 7 11 9-1 18-8 22-16 3-5 0-8-5-8z"/></g>'
+    + '<g class="popo-arm r"><path d="M160 148c9-1 20 5 24 13 3 7 0 12-7 11-9-1-18-8-22-16-3-5 0-8 5-8z"/></g>'
+    + '<g class="popo-feet">' + FOOT(74) + FOOT(126) + '</g>'
+    + '<g class="popo-head"><g transform="translate(-4 -39.4) scale(3.25)">' + OTTER_EARS + OTTER_HEAD + OTTER_FEATURES + '</g></g>'
     + '</g></svg>';
 }
 
@@ -455,6 +457,10 @@ export function applies(t, k) {
   return !t.days?.length || t.days.includes(fromKey(k).getDay());
 }
 export const tasksOn = k => store.s.tasks.filter(t => applies(t, k));
+// 일정 can run over several days: date is the first day, endDate (optional) the last one, both included
+export const eventOn = (e, k) => e.date === k || (!!e.endDate && e.date < k && k <= e.endDate);
+export const eventsOn = k => (store.s.events || []).filter(e => eventOn(e, k)).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+export const eventSpan = e => e.endDate && e.endDate > e.date ? `${fmtShort(e.date)} ~ ${fmtShort(e.endDate)}` : '';
 // 디데이: days left to (D-3), on (D-DAY) or since (D+2) a date
 export const ddayN = date => Math.round((fromKey(date) - fromKey(dkey())) / 864e5);
 export const ddayLabel = date => { const n = ddayN(date); return n === 0 ? 'D-DAY' : n > 0 ? `D-${n}` : `D+${-n}`; };

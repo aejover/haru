@@ -32,12 +32,14 @@ export function catInput(value = '', placeholder = '예: 운동 · 비우면 공
 
 export function editEvent(ev, onDone) {
   const title = h('input', { class: 'input', value: ev.title });
-  const date = h('input', { class: 'input', type: 'date', value: ev.date });
+  const date = h('input', { class: 'input', type: 'date', value: ev.date, onchange: () => { if (end.value && end.value < date.value) end.value = date.value; } });
+  const end = h('input', { class: 'input', type: 'date', value: ev.endDate || ev.date, min: ev.date });
+  date.addEventListener('change', () => { end.min = date.value; });
   const time = h('input', { class: 'input', type: 'time', value: ev.time || '' });
   const note = h('input', { class: 'input', value: ev.note || '', placeholder: '장소, 준비물…' });
   modal({
     title: '일정 수정',
-    body: h('div', { class: 'col' }, field('제목', title), h('div', { class: 'grid-2' }, field('날짜', date), field('시간 (비우면 종일)', time)), field('메모', note)),
+    body: h('div', { class: 'col' }, field('제목', title), h('div', { class: 'grid-2' }, field('시작일', date), field('종료일 (하루면 같은 날)', end)), field('시간 (비우면 종일)', time), field('메모', note)),
     actions: [
       { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${ev.title}" 일정을 삭제할까요?`, { ok: '삭제', danger: true }))) return false; store.s.events = store.s.events.filter(x => x !== ev); commit('events'); onDone?.(); } },
       { label: '취소' },
@@ -45,6 +47,7 @@ export function editEvent(ev, onDone) {
         if (!title.value.trim()) { toast('제목을 입력하세요.'); title.focus(); return false; }
         if (!date.value) { toast('날짜를 고르세요.'); return false; }
         Object.assign(ev, { title: title.value.trim(), date: date.value, time: time.value, note: note.value.trim() });
+        if (end.value && end.value > date.value) ev.endDate = end.value; else delete ev.endDate;
         commit('events'); toast('일정을 고쳤어요.'); onDone?.();
       } },
     ],

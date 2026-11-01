@@ -2,7 +2,7 @@
 // time-progress; swipe right for 포포.
 import {
   h, icon, store, commit, bus, dkey, addDays, fromKey, fmtDay, pad, WEEK, monthKey, toast, seg, checkEl,
-  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify, ddayN, ddayLabel,
+  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify, ddayN, ddayLabel, eventsOn,
 } from '../core.js';
 import { getWeather } from '../weather.js';
 import { editTask, editEvent } from './edit-item.js';
@@ -38,7 +38,7 @@ export function miniMonth(ym, { onPick, selected, big = false } = {}) {
     const k = addDays(startKey, i);
     const d = fromKey(k);
     if (i >= 35 && d.getMonth() !== m - 1) break;
-    const evs = store.s.events.filter(e => e.date === k);
+    const evs = eventsOn(k);
     const once = store.s.tasks.filter(t => t.kind === 'once' && t.date === k);
     grid.append(h('button', {
       class: 'cal-cell' + (d.getMonth() !== m - 1 ? ' other' : '') + (k === today ? ' today' : '') + (k === selected ? ' sel' : ''),
@@ -168,7 +168,7 @@ export default {
       const k = dkey();
       const list = tasksOn(k);
       const routines = list.filter(t => t.kind === 'daily'), todos = list.filter(t => t.kind === 'once');
-      const events = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+      const events = eventsOn(k);
       const st = dayStats(k), y = dayStats(addDays(k, -1));
       const diff = Math.round(st.pct - y.pct);
       sum.textContent = st.total ? `${st.done}/${st.total} 완료 · ${Math.round(st.pct)}%${y.total ? ` · 어제보다 ${diff >= 0 ? '+' : ''}${diff}%p` : ''}` : '';

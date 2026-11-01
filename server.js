@@ -275,7 +275,8 @@ async function tick() {
   const briefAt = Number(s.briefHour ?? 8) * 60;
   const briefKey = `brief|${today}`;
   if (!sentLog[briefKey] && nowMin >= briefAt && nowMin - briefAt < 90 && !briefingBusy) {
-    const events = (state.events || []).filter(e => e.date === today).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+    // a several-day 일정 (date … endDate) is in the briefing on each of its days
+    const events = (state.events || []).filter(e => e.date === today || (e.endDate && e.date < today && today <= e.endDate)).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
     if (events.length) {
       sentLog[briefKey] = Date.now(); dirty = true; briefingBusy = true;
       sendBriefing(events, today).finally(() => { briefingBusy = false; });
@@ -373,6 +374,8 @@ async function api(req, res, url) {
     return;
   }
   if (p === '/api/phone' && req.method === 'GET') return json(res, 200, { ...phone, pagesUrl: config.pagesUrl || '' });
+  // what to paste into the Claude app / Claude Code to connect mcp/haru-mcp.js (paths on this computer)
+  if (p === '/api/mcp' && req.method === 'GET') return json(res, 200, { node: process.execPath, script: path.join(ROOT, 'mcp', 'haru-mcp.js') });
   if (p === '/api/notify/test' && req.method === 'POST') {
     const r = await pushNotify({ title: '하루 알림 테스트', message: '이 알림이 보이면 휴대폰 알림이 연결된 거예요.', tags: ['white_check_mark'], kind: 'test' });
     return json(res, 200, r);

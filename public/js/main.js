@@ -28,7 +28,7 @@ const VIEWS = { home, checklist, goals, memo, calendar, pomodoro, youtube, docs,
 // tabs that became a page of another tab keep their old addresses ("alarm" is the oldest name of 파워냅)
 const MOVED = { routine: 'checklist/routine', nap: 'pomodoro/nap', alarm: 'pomodoro/nap', timetable: 'calendar/timetable' };
 const NAV = [
-  ['home', '홈'], ['checklist', '할 일 · 루틴'], ['goals', '목표'], ['memo', '메모장'], ['calendar', '시간표 · 캘린더'], ['pomodoro', '뽀모도로 · 파워냅'],
+  ['home', '홈'], ['checklist', '할 일 · 루틴'], ['goals', '목표'], ['memo', '메모장'], ['calendar', '캘린더 · 시간표'], ['pomodoro', '뽀모도로 · 파워냅'],
   ['youtube', '유튜브 · 라디오'], ['docs', '문서 작업'], ['money', '가계부'], ['diary', '일기'], ['diet', '건강'], ['growth', '커리큘럼'],
   '-', ['profile', '프로필'], ['settings', '설정'],
 ];
