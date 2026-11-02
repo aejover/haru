@@ -44,7 +44,7 @@ export default {
     const numIn = (key, min, max, unit) => h('div', { class: 'row', style: { gap: '6px' } }, h('input', { class: 'input', type: 'number', min, max, value: S[key], style: { width: '84px', height: '36px' }, onchange: e => { S[key] = Math.min(max, Math.max(min, Number(e.target.value) || min)); e.target.value = S[key]; commit('settings'); } }), h('span', { class: 'small muted' }, unit));
 
     // theme
-    const themeSeg = seg([['light', '화이트'], ['dark', '블랙'], ['system', '시스템']], S.theme, v => { S.theme = v; commit('settings'); applyTheme(v, true); });
+    const themeSeg = seg([['light', '화이트'], ['dark', '블랙'], ['system', '시스템'], ['special', '스페셜']], S.theme, v => { S.theme = v; commit('settings'); applyTheme(v, true); });
 
     // weather city
     const cityLabel = h('span', { class: 'small muted' }, S.city ? `${S.city.name}${S.city.region ? ' · ' + S.city.region : ''}` : '현재 위치 (허용하지 않으면 서울)');
@@ -163,7 +163,7 @@ export default {
 
     el.append(
       h('div', { class: 'page-head' }, h('h1', { class: 'h1' }, '설정')),
-      card('화면', row('테마', '블랙 · 화이트 반전', themeSeg)),
+      card('화면', row('테마', '블랙 · 화이트 반전, 스페셜은 스위스 · 바우하우스 포스터', themeSeg)),
       card('기기 연결 (컴퓨터 ↔ 휴대폰)', syncPanel(ctx)),
       phoneBox, installBox,
       card('날씨 지역', h('div', { class: 'row' }, icon('cloud', 18), cityLabel, h('span', { class: 'spacer' }), S.city ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { S.city = null; commit('settings'); clearWeatherCache(); cityLabel.textContent = '현재 위치'; } }, '현재 위치 사용') : null), cityIn, cityResults),

@@ -38,7 +38,8 @@ export const currentView = () => current?.id || 'home';
 // ---------- theme ----------
 export function applyTheme(mode = store.s.settings.theme, animate = false, origin) {
   const set = () => {
-    if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode;
+    // special: the Swiss / Bauhaus poster theme (paper, black ink, red · blue · yellow shapes)
+    if (mode === 'light' || mode === 'dark' || mode === 'special') document.documentElement.dataset.theme = mode;
     else delete document.documentElement.dataset.theme;
     try { localStorage.setItem('haru.theme', JSON.stringify(mode)); } catch { /* ignore */ }
     bus.emit('theme');
@@ -128,13 +129,27 @@ function watchTitle(v) {
 // ---------- phone tab bar ----------
 // the four tabs people open most, plus 전체 for the rest (the drawer)
 const TABS = [['home', '홈', 'home'], ['checklist', '할 일', 'checklist'], ['calendar', '캘린더', 'calendar'], ['memo', '메모장', 'memo']];
+// a floating glass pill of tabs with a glass lens over the one you're on (it slides over when you switch),
+// and 전체 as a round glass button beside it
+let lensAt = -1;
 function paintTabbar() {
   const k = dkey(), left = tasksOn(k).filter(t => !isDone(t, k)).length;
+  const at = TABS.findIndex(([id]) => id === current?.id);
+  const lens = h('span', { class: 'tab-lens' + (at < 0 ? ' off' : ''), 'aria-hidden': 'true' });
+  const place = i => { lens.style.transform = `translateX(${Math.max(0, i) * 100}%)`; };
+  place(lensAt < 0 ? at : lensAt);
   $('#tabbar').replaceChildren(
-    ...TABS.map(([id, label, ico]) => h('button', { class: 'tab' + (current?.id === id ? ' on' : ''), 'aria-current': current?.id === id ? 'page' : null, onclick: () => current?.id === id ? $('#view').scrollTo({ top: 0, behavior: 'smooth' }) : go(id) },
-      h('span', { class: 'tab-ico' }, icon(ico, 22), id === 'checklist' && left ? h('span', { class: 'tab-badge num' }, left > 9 ? '9+' : left) : null), h('span', { class: 'tab-lbl' }, label))),
-    h('button', { class: 'tab' + (TABS.some(([id]) => id === current?.id) ? '' : ' on'), 'aria-label': '전체 메뉴 열기', onclick: openDrawer },
-      h('span', { class: 'tab-ico' }, icon('menu', 22)), h('span', { class: 'tab-lbl' }, '전체')));
+    h('div', { class: 'tab-pill' }, lens,
+      ...TABS.map(([id, label, ico]) => h('button', { class: 'tab' + (current?.id === id ? ' on' : ''), 'aria-current': current?.id === id ? 'page' : null, onclick: () => current?.id === id ? $('#view').scrollTo({ top: 0, behavior: 'smooth' }) : go(id) },
+        h('span', { class: 'tab-ico' }, icon(ico, 22), id === 'checklist' && left ? h('span', { class: 'tab-badge num' }, left > 9 ? '9+' : left) : null), h('span', { class: 'tab-lbl' }, label)))),
+    h('button', { class: 'tab-round' + (at < 0 ? ' on' : ''), 'aria-label': '전체 메뉴 열기', onclick: openDrawer }, icon('menu', 22)));
+  // slide (and stretch a little, like a drop of glass) from the last tab to this one
+  if (at >= 0 && lensAt >= 0 && lensAt !== at) {
+    void lens.offsetWidth; // start from the old tab, so the move below is animated
+    lens.classList.add('moving'); place(at);
+    setTimeout(() => lens.classList.remove('moving'), 420);
+  }
+  if (at >= 0) lensAt = at;
 }
 // iOS home-screen apps get a viewport shorter than the screen (the status bar and home bar are taken off)
 // but are still drawn from the very top, so anything fixed to the bottom floats above an empty strip.

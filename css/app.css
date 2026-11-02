@@ -36,6 +36,10 @@
   --good: #23784A;
   --bad: #C2341F;
   --warn: #9A6A12;
+  /* liquid glass: the floating tab bar, and the drop of glass over a picked tab / option */
+  --bar-bg: rgba(255, 255, 255, .62);
+  --lens-bg: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.58));
+  --lens-shadow: inset 0 1px 0 #fff, inset 0 -1px 1px rgba(255,255,255,.6), inset 0 0 0 1px rgba(255,255,255,.9), inset 5px 0 8px -5px rgba(70,150,255,.45), inset -5px 0 8px -5px rgba(255,90,70,.4), 0 4px 14px rgba(0,0,0,.14);
   --shadow: 0 1px 1px rgba(0, 0, 0, .03), 0 10px 30px rgba(14, 14, 16, .07), 0 30px 70px rgba(14, 14, 16, .06);
   --shadow-lg: 0 2px 4px rgba(0, 0, 0, .04), 0 24px 60px rgba(14, 14, 16, .16);
   --r-xl: 28px; --r-lg: 22px; --r-md: 16px; --r-sm: 12px; --r-xs: 8px;
@@ -58,7 +62,7 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="special"]) {
     --bg: #07080B; --bg-2: #101217; --fg: #F2F2EF; --fg-2: #C9CACF; --muted: #8B8D95; --faint: #52545C;
     --glass: rgba(255, 255, 255, .055); --glass-strong: rgba(24, 26, 33, .74); --glass-solid: #15171D;
     --glass-stroke: rgba(255, 255, 255, .13); --hair: rgba(255, 255, 255, .08); --hair-2: rgba(255, 255, 255, .16);
@@ -67,6 +71,8 @@
     --accent: #FF6B3D; --accent-fg: #0C0D10; --accent-soft: rgba(255, 107, 61, .16);
     --blob-1: #2D5FE0; --blob-2: #0A1638; --blob-3: #F07A32; --blob-4: #6FB4F0; --blob-op: .5; --grain: .09;
     --desk: #19191C; --good: #5BC487; --bad: #FF7A62; --warn: #E0B45A;
+  --bar-bg: rgba(22, 24, 30, .72); --lens-bg: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.05));
+  --lens-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 1px rgba(255,255,255,.2), inset 0 0 0 1px rgba(255,255,255,.2), inset 6px 0 10px -6px rgba(80,170,255,.6), inset -6px 0 10px -6px rgba(255,100,80,.5), 0 6px 18px rgba(0,0,0,.35);
     --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35), 0 30px 70px rgba(0, 0, 0, .3);
     --shadow-lg: 0 2px 4px rgba(0, 0, 0, .4), 0 24px 60px rgba(0, 0, 0, .55);
     color-scheme: dark;
@@ -81,6 +87,8 @@
   --accent: #FF6B3D; --accent-fg: #0C0D10; --accent-soft: rgba(255, 107, 61, .16);
   --blob-1: #2D5FE0; --blob-2: #0A1638; --blob-3: #F07A32; --blob-4: #6FB4F0; --blob-op: .5; --grain: .09;
   --desk: #19191C; --good: #5BC487; --bad: #FF7A62; --warn: #E0B45A;
+  --bar-bg: rgba(22, 24, 30, .72); --lens-bg: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.05));
+  --lens-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 1px rgba(255,255,255,.2), inset 0 0 0 1px rgba(255,255,255,.2), inset 6px 0 10px -6px rgba(80,170,255,.6), inset -6px 0 10px -6px rgba(255,100,80,.5), 0 6px 18px rgba(0,0,0,.35);
   --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35), 0 30px 70px rgba(0, 0, 0, .3);
   --shadow-lg: 0 2px 4px rgba(0, 0, 0, .4), 0 24px 60px rgba(0, 0, 0, .55);
   color-scheme: dark;
@@ -219,7 +227,8 @@ button.chip:hover { background: var(--tint-2); }
 .seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--tint); position: relative; gap: 2px; }
 .seg button { position: relative; z-index: 1; height: 32px; padding: 0 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; color: var(--muted); transition: color .25s; white-space: nowrap; }
 .seg button.on { color: var(--fg); }
-.seg .seg-thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; border-radius: 999px; background: var(--glass-strong); box-shadow: 0 2px 8px rgba(0,0,0,.1), inset 0 1px 0 var(--spec); transition: left .65s var(--spring), width .65s var(--spring); }
+/* the picked option sits under a little drop of glass (bright rim, faint blue/red fringe at the edges) */
+.seg .seg-thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; border-radius: 999px; background: var(--lens-bg); box-shadow: var(--lens-shadow); -webkit-backdrop-filter: blur(2px) saturate(190%); backdrop-filter: blur(2px) saturate(190%); transition: left .65s var(--spring), width .65s var(--spring); }
 
 /* switch */
 .switch { position: relative; width: 46px; height: 28px; flex: none; }
@@ -256,22 +265,38 @@ button.chip:hover { background: var(--tint-2); }
 /* ---------- phone tab bar ---------- */
 .tabbar { display: none; }
 @media (max-width: 719px) {
-  :root { --tabbar: calc(62px + env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)); }
+  /* a floating glass pill + a round glass button, the tab you're on under a sliding drop of glass */
+  :root { --tabbar: calc(76px + env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)); }
   .kb-open { --tabbar: 0px; }
   .tabbar {
     position: fixed; z-index: 35; left: 0; right: 0; bottom: calc(-1 * var(--vgap, 0px)); height: var(--tabbar);
-    display: grid; grid-template-columns: repeat(5, 1fr); align-content: start;
-    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)) max(8px, env(safe-area-inset-left, 0px));
-    background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
-    border-top: 1px solid var(--hair); box-shadow: inset 0 1px 0 var(--spec), 0 -6px 24px rgba(0,0,0,.05);
+    display: flex; align-items: flex-start; gap: 10px; pointer-events: none;
+    padding: 4px max(12px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)) max(12px, env(safe-area-inset-left, 0px));
     transition: transform .5s var(--chewy);
   }
-  .kb-open .tabbar { height: calc(62px + env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)); transform: translateY(110%); }
-  .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; color: var(--fg); opacity: .5; transition: opacity .3s var(--ease); -webkit-tap-highlight-color: transparent; }
+  .tabbar > * { pointer-events: auto; }
+  .kb-open .tabbar { height: calc(76px + env(safe-area-inset-bottom, 0px) + var(--vpad, 0px)); transform: translateY(110%); }
+  .tab-pill, .tab-round {
+    height: 64px; border-radius: 999px; background: var(--bar-bg); border: 1px solid var(--glass-stroke);
+    -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: inset 0 1px 0 var(--spec), 0 10px 30px rgba(0,0,0,.22);
+  }
+  .tab-pill { position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px; }
+  .tab-round { flex: none; width: 64px; display: grid; place-items: center; color: var(--fg); transition: transform .6s var(--bouncy); -webkit-tap-highlight-color: transparent; }
+  .tab-round:active { transform: scale(.9); }
+  .tab-round.on { color: var(--accent); }
+  .tab-lens {
+    position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: 999px;
+    background: var(--lens-bg); box-shadow: var(--lens-shadow);
+    -webkit-backdrop-filter: blur(2px) saturate(190%) brightness(1.12); backdrop-filter: blur(2px) saturate(190%) brightness(1.12);
+    transition: transform .65s var(--chewy), scale .4s var(--bouncy), opacity .3s;
+  }
+  .tab-lens.moving { scale: 1.14 .9; }
+  .tab-lens.off { opacity: 0; }
+  .tab { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; color: var(--fg); opacity: .5; transition: opacity .3s var(--ease); -webkit-tap-highlight-color: transparent; }
   .tab.on { opacity: 1; }
-  .tab-ico { position: relative; display: grid; place-items: center; width: 54px; height: 30px; border-radius: 999px; transition: background-color .35s var(--ease), transform .6s var(--bouncy); }
-  .tab.on .tab-ico { background: var(--ink); color: var(--ink-fg); }
-  .tab:active .tab-ico { transform: scale(.88); }
+  .tab-ico { position: relative; display: grid; place-items: center; width: 44px; height: 28px; transition: transform .6s var(--bouncy); }
+  .tab:active .tab-ico { transform: scale(.86); }
   .tab-lbl { font-size: 11px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
   .tab-badge { position: absolute; top: -3px; right: 5px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); font-family: var(--display); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
   /* the tab bar already has 메뉴 (전체); keep the top bar to title + status */
@@ -678,6 +703,7 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .cal-ev.span.first.last { margin-right: 0; }
 .cal-ev.span:hover { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 .mcp-config { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--tint); font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: all; }
+.convert-btn { align-self: flex-start; }
 .date-range { display: flex; align-items: center; gap: 8px; }
 .date-range .input { flex: 1; min-width: 0; }
 .cal-ev.ai::after { content: " ✦"; }
@@ -1389,3 +1415,97 @@ body { overscroll-behavior: none; }
 /* iOS home-screen app: full-screen layers reach down over the strip the viewport leaves out (see fitStandalone) */
 .ambient, .view, .scrim, .modal-wrap, .viewer, .present, .rt-run, .ring-screen, .offline-wrap { bottom: calc(-1 * var(--vgap, 0px)); }
 .drawer { bottom: calc(10px + env(safe-area-inset-bottom, 0px) - var(--vgap, 0px)); }
+
+/* 메모장 in 블랙: the big editor and list were frosted glass with a white sheen, which read as a bright grey
+   slab on the near-black page; make them deep, quiet panels and mark the open memo without a white block */
+:root[data-theme="dark"] :is(.memo-editor, .memo-list) { background: rgba(14, 16, 21, .78); }
+:root[data-theme="dark"] :is(.memo-editor, .memo-list)::before { opacity: .18; }
+:root[data-theme="dark"] .memo-item.on { background: var(--tint-2); color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) :is(.memo-editor, .memo-list) { background: rgba(14, 16, 21, .78); }
+  :root:not([data-theme]) :is(.memo-editor, .memo-list)::before { opacity: .18; }
+  :root:not([data-theme]) .memo-item.on { background: var(--tint-2); color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
+}
+
+/* ---------- 스페셜: a Swiss / Bauhaus poster ----------
+   warm paper, black ink, tight heavy grotesk, hard black rules, square corners, and the Bauhaus
+   red · blue · yellow as flat shapes at the page edges. No glass, no blur, no soft shadows. */
+:root[data-theme="special"] {
+  --bg: #EFEBE1; --bg-2: #E4DFD3; --fg: #111111; --fg-2: #2B2A27; --muted: #6E6A61; --faint: #A6A196;
+  --glass: #F7F4EC; --glass-strong: #F7F4EC; --glass-solid: #F7F4EC; --glass-stroke: #111111;
+  --hair: rgba(17, 17, 17, .14); --hair-2: rgba(17, 17, 17, .4); --spec: transparent;
+  --tint: rgba(17, 17, 17, .06); --tint-2: rgba(17, 17, 17, .12);
+  --ink: #111111; --ink-fg: #F7F4EC;
+  --accent: #D9321F; --accent-fg: #FFFFFF; --accent-soft: rgba(217, 50, 31, .12);
+  --b-red: #D9321F; --b-blue: #1F4FA3; --b-yellow: #F2B21B;
+  --paper: #FBF9F3; --paper-fg: #111111; --desk: #E4DFD3;
+  --good: #1F7A45; --bad: #D9321F; --warn: #A26B00; --grain: .05;
+  --shadow: none; --shadow-lg: 6px 6px 0 #111111;
+  --r-xl: 2px; --r-lg: 2px; --r-md: 2px; --r-sm: 0px; --r-xs: 0px;
+  --display: "Helvetica Neue", Helvetica, Arial, var(--font);
+  --blur: none;
+  --bar-bg: #F7F4EC; --lens-bg: #111111; --lens-shadow: none;
+  color-scheme: light;
+}
+[data-theme="special"] body { letter-spacing: -.015em; }
+/* the page: flat shapes poking in from the edges and two thin rules, like the posters */
+[data-theme="special"] .ambient i { display: none; }
+[data-theme="special"] .ambient {
+  background:
+    linear-gradient(var(--fg), var(--fg)) 7vw 0 / 1.5px 100% no-repeat,
+    linear-gradient(var(--fg), var(--fg)) 0 72vh / 100% 1.5px no-repeat,
+    radial-gradient(circle at 100% 0, var(--b-blue) 0 15vmax, transparent calc(15vmax + 1px)),
+    radial-gradient(circle at 0 100%, var(--b-red) 0 13vmax, transparent calc(13vmax + 1px)),
+    linear-gradient(var(--b-yellow), var(--b-yellow)) right 0 bottom 0 / 9vmax 9vmax no-repeat,
+    repeating-linear-gradient(to bottom, var(--fg) 0 3px, transparent 3px 11px) right 11vmax bottom 2vmax / 14vmax 66px no-repeat,
+    var(--bg);
+}
+/* panels become paper cards with a black rule; no frost, no sheen */
+[data-theme="special"] .glass { border: 1.5px solid var(--fg); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="special"] .glass::before, [data-theme="special"] .glass::after { display: none; }
+[data-theme="special"] :is(.btn, .chip, .seg, .seg button, .seg .seg-thumb, .input, .select, .textarea, .toast, .memo-item, .nav-item, .cal-cell, .cal-ev, .popo-bubble, .popo-item, .hero-date) { border-radius: 0; }
+[data-theme="special"] .btn-ink { box-shadow: none; }
+[data-theme="special"] .btn-ink:hover { background: var(--accent); box-shadow: none; }
+[data-theme="special"] :is(.btn-glass, .glass-btn, .chip-glass) { background: transparent; border: 1.5px solid var(--fg); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="special"] :is(.btn-glass, .glass-btn):hover { background: var(--fg); color: var(--ink-fg); }
+[data-theme="special"] .seg { background: transparent; box-shadow: inset 0 0 0 1.5px var(--fg); }
+[data-theme="special"] .seg button.on { color: var(--ink-fg); }
+[data-theme="special"] .seg .seg-thumb { -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="special"] .input:focus, [data-theme="special"] .select:focus, [data-theme="special"] .textarea:focus { background: var(--paper); border-color: var(--fg); box-shadow: none; }
+[data-theme="special"] .modal { border: 1.5px solid var(--fg); box-shadow: var(--shadow-lg); }
+[data-theme="special"] .check { border-radius: 0; }
+[data-theme="special"] .bar { border-radius: 0; }
+[data-theme="special"] .bar > i { background: var(--accent); border-radius: 0; }
+/* type: big, black, tight — a red square marks each page title */
+[data-theme="special"] .h1 { font-size: 40px; font-weight: 900; letter-spacing: -.055em; }
+[data-theme="special"] .h1::before, [data-theme="special"] .pg-title.on::before { content: ""; display: inline-block; width: .3em; height: .3em; margin-right: .22em; vertical-align: .14em; background: var(--accent); }
+[data-theme="special"] .pg-titles { font-weight: 900; font-size: 40px; letter-spacing: -.055em; border-bottom: 3px solid var(--fg); padding-bottom: 8px; }
+[data-theme="special"] .pg-title { opacity: .22; }
+[data-theme="special"] .pg-title.on { opacity: 1; }
+[data-theme="special"] .page-head { border-bottom: 3px solid var(--fg); padding-bottom: 10px; }
+[data-theme="special"] :is(.h2, .h3) { font-weight: 850; letter-spacing: -.04em; }
+[data-theme="special"] .topbar { background: var(--bg); border-bottom: 1.5px solid var(--fg); }
+/* 홈 clock card: a black poster with a red circle and a blue half-disc, the seconds in yellow */
+[data-theme="special"] .hero { background: var(--fg); color: var(--ink-fg); border-color: var(--fg); }
+[data-theme="special"] .hero::before { display: block; content: ""; position: absolute; inset: auto -40px -60px auto; width: 190px; height: 190px; border-radius: 50%; background: var(--b-red); mix-blend-mode: normal; opacity: 1; }
+[data-theme="special"] .hero::after { display: block; content: ""; position: absolute; inset: -70px 18% auto auto; width: 120px; height: 120px; padding: 0; border-radius: 50%; background: linear-gradient(90deg, var(--b-blue) 50%, transparent 50%); -webkit-mask: none; mask: none; }
+[data-theme="special"] .hero > * { position: relative; z-index: 1; }
+[data-theme="special"] .hero .clock .sec, [data-theme="special"] .hero-mark { color: var(--b-yellow); }
+[data-theme="special"] .hero :is(.hero-year, .weather) { color: rgba(247, 244, 236, .66); }
+[data-theme="special"] .hero .weather .temp { color: var(--ink-fg); }
+[data-theme="special"] .hero-date { box-shadow: inset 0 0 0 1.5px var(--ink-fg); color: var(--ink-fg); }
+[data-theme="special"] .clock { font-weight: 800; letter-spacing: -.07em; }
+/* calendar: today in a red Bauhaus disc, the grid on hard rules */
+[data-theme="special"] .cal-cell.sel { background: transparent; box-shadow: inset 0 0 0 2px var(--fg); }
+[data-theme="special"] .cal-ev.span { background: var(--b-yellow); color: var(--fg); }
+[data-theme="special"] .cal-ev.dday { background: var(--b-blue); color: #fff; }
+/* phone tab bar: a flat paper strip with a black block under the tab you're on and a red disc for 전체 */
+[data-theme="special"] :is(.tab-pill, .tab-round) { border: 1.5px solid var(--fg); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="special"] .tab-pill, [data-theme="special"] .tab-lens { border-radius: 0; }
+[data-theme="special"] .tab-lens { -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="special"] .tab.on { color: var(--ink-fg); }
+[data-theme="special"] .tab-round { background: var(--b-red); border-color: var(--b-red); color: #fff; }
+[data-theme="special"] .tab-round.on { color: var(--b-yellow); }
+[data-theme="special"] .tab-badge { background: var(--b-yellow); color: var(--fg); box-shadow: none; border-radius: 0; }
+[data-theme="special"] .toast { background: var(--fg); }
+[data-theme="special"] .dropzone { background: var(--glass); border-radius: 0; }

@@ -1,5 +1,5 @@
 // edit-item.js — edit an 일정 (event), 할 일 (once task) or 루틴 (daily task) after it was added.
-import { h, store, commit, modal, seg, toast, confirmDialog, removeTask, WEEK, dkey } from '../core.js';
+import { h, icon, store, commit, modal, seg, toast, confirmDialog, removeTask, addTask, uid, WEEK, dkey } from '../core.js';
 
 const field = (label, el) => h('label', { class: 'field' }, h('span', null, label), el);
 
@@ -37,9 +37,19 @@ export function editEvent(ev, onDone) {
   date.addEventListener('change', () => { end.min = date.value; });
   const time = h('input', { class: 'input', type: 'time', value: ev.time || '' });
   const note = h('input', { class: 'input', value: ev.note || '', placeholder: '장소, 준비물…' });
-  modal({
+  // 일정 → 할 일: the same title, day (the first one, for a several-day 일정), time and note, now with a checkbox
+  const toTask = () => {
+    if (!title.value.trim()) { toast('제목을 입력하세요.'); title.focus(); return; }
+    store.s.events = store.s.events.filter(x => x !== ev);
+    addTask({ title: title.value, kind: 'once', date: date.value || ev.date, time: time.value || undefined, note: note.value.trim() || undefined });
+    commit('events');
+    toast(`"${title.value.trim()}"을(를) 할 일로 바꿨어요.`, { icon: 'checklist' });
+    m.close(); onDone?.();
+  };
+  const m = modal({
     title: '일정 수정',
-    body: h('div', { class: 'col' }, field('제목', title), h('div', { class: 'grid-2' }, field('시작일', date), field('종료일 (하루면 같은 날)', end)), field('시간 (비우면 종일)', time), field('메모', note)),
+    body: h('div', { class: 'col' }, field('제목', title), h('div', { class: 'grid-2' }, field('시작일', date), field('종료일 (하루면 같은 날)', end)), field('시간 (비우면 종일)', time), field('메모', note),
+      h('button', { class: 'btn btn-ghost btn-sm convert-btn', type: 'button', onclick: toTask }, icon('checklist', 15), '할 일로 바꾸기')),
     actions: [
       { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${ev.title}" 일정을 삭제할까요?`, { ok: '삭제', danger: true }))) return false; store.s.events = store.s.events.filter(x => x !== ev); commit('events'); onDone?.(); } },
       { label: '취소' },
@@ -72,7 +82,17 @@ export function editTask(t, onDone) {
   const goal = goalSelect(t.goalId || '');
   const [cat, catList] = catInput(t.cat || '');
   const remind = remindSelect(t.remind);
-  modal({
+  // 할 일 → 일정: the same title, day, time and note on the calendar (a 루틴 becomes one 일정 on the date picked here)
+  const toEvent = () => {
+    if (!title.value.trim()) { toast('제목을 입력하세요.'); title.focus(); return; }
+    const day = date.value || dkey();
+    store.s.events.push({ id: uid(), title: title.value.trim(), date: day, time: time.value || '', note: t.note || '', source: 'manual' });
+    if (t.kind === 'daily') removeTask(t); else { store.s.tasks = store.s.tasks.filter(x => x !== t); commit('tasks'); }
+    commit('events');
+    toast(`"${title.value.trim()}"을(를) ${day.slice(5).replace('-', '/')} 일정으로 바꿨어요.`, { icon: 'calendar' });
+    m.close(); onDone?.();
+  };
+  const m = modal({
     title: t.kind === 'daily' ? '반복 할 일 수정' : '할 일 수정',
     body: h('div', { class: 'col' },
       field('제목', title),
@@ -80,7 +100,8 @@ export function editTask(t, onDone) {
       h('div', { class: 'grid-2' }, dateField, field('시간 (선택)', time)),
       daysField,
       h('div', { class: 'grid-2' }, h('label', { class: 'field' }, h('span', null, '종류'), cat, catList), field('미리 알림 (시간이 있을 때)', remind)),
-      goal.hidden ? null : field('목표와 연결', goal)),
+      goal.hidden ? null : field('목표와 연결', goal),
+      h('button', { class: 'btn btn-ghost btn-sm convert-btn', type: 'button', onclick: toEvent }, icon('calendar', 15), '일정으로 바꾸기')),
     actions: [
       { label: '삭제', danger: true, onClick: async () => { if (!(await confirmDialog(`"${t.title}"을(를) 삭제할까요?`, { ok: '삭제', danger: true }))) return false; removeTask(t); onDone?.(); } },
       { label: '취소' },
