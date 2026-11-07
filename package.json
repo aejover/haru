@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "site": "node site/build.mjs"
+    "site": "node site/build.mjs",
+    "mcp": "node mcp/haru-mcp.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0"
