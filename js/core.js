@@ -247,6 +247,10 @@ export function icon(name, size = 20, sw = 1.7) {
 }
 export const iconHTML = (name, size = 20, sw = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 
+// 하루's logo: a full circle joined to a ring (the ring's hole is cut by its reverse winding)
+export const LOGO_PATH = 'M66 256a108 108 0 1 1 216 0a108 108 0 1 1 -216 0Z M227 256a110 110 0 1 1 220 0a110 110 0 1 1 -220 0Z M282 256a55 55 0 1 0 110 0a55 55 0 1 0 -110 0Z';
+export const logoSVG = (w = 40) => `<svg class="logo" viewBox="60 140 392 232" width="${w}" height="${Math.round((w * 232) / 392)}" aria-hidden="true"><path fill="currentColor" d="${LOGO_PATH}"/></svg>`;
+
 // 포포's face (also the Claude button, in black & white): the otter plush — wide, flat head, small side ears,
 // big muzzle, closed smiling eyes, whiskers — drawn flat with no outlines like the rest of 하루. 64×64 grid.
 const OTTER_EARS = '<circle class="ear" cx="11.5" cy="25" r="4.6"/><circle class="ear" cx="52.5" cy="25" r="4.6"/>'
@@ -481,6 +485,7 @@ export function addTask(o) {
   if (o.goalId) t.goalId = o.goalId;
   if (o.cat?.trim()) t.cat = o.cat.trim();
   if (o.remind != null && o.remind !== '') t.remind = Number(o.remind);
+  if (o.quad && o.quad !== 'now') t.quad = o.quad; // 할 일 칸: now (오늘 할 일) unless said otherwise
   store.s.tasks.push(t);
   gainXP('checklist');
   commit('tasks');

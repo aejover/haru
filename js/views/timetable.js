@@ -2,7 +2,8 @@
 import { h, icon, store, commit, uid, modal, toast, seg, confirmDialog, promptDialog, gainXP, pad, dkey, mondayOf, switchEl, checkEl, upload, pickFiles, ai, jsonOf, aiFail, urlToBlock, obj } from '../core.js';
 import { openViewer } from '../viewer.js';
 
-export const COLORS = ['#E07A6B', '#D9A441', '#9DC25A', '#5FB3A3', '#5B8FD6', '#9A7BD1', '#E57FA8', '#E8935A', '#4FB0D9', '#7D8590'];
+// black & white: block shades from charcoal to light grey
+export const COLORS = ['#2B2B2E', '#4A4A4E', '#67676B', '#85858A', '#A2A2A6', '#3A3A3D', '#58585C', '#76767A', '#939397', '#B2B2B5'];
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const HOUR = 60; // px per hour
 const toMin = t => { const [a, b] = String(t || '0:0').split(':').map(Number); return a * 60 + (b || 0); };

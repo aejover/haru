@@ -4,7 +4,8 @@ import {
 } from '../core.js';
 
 export const RATINGS = [
-  [5, '최고의 날', 'face5', '#22A06B'], [4, '좋은 날', 'face4', '#3B82F6'], [3, '보통 날', 'face3', '#E0A82E'], [2, '안 좋은 날', 'face2', '#F07B32'], [1, '최악의 날', 'face1', '#E5484D'],
+  // black & white: the better the day, the darker its mark
+  [5, '최고의 날', 'face5', '#1F1F21'], [4, '좋은 날', 'face4', '#505054'], [3, '보통 날', 'face3', '#7E7E82'], [2, '안 좋은 날', 'face2', '#A9A9AC'], [1, '최악의 날', 'face1', '#C8C8CA'],
 ];
 const rateOf = n => RATINGS.find(r => r[0] === n);
 const rateColor = n => rateOf(n)?.[3] || 'var(--fg)';

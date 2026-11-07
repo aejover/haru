@@ -44,7 +44,8 @@ export function applyDailyMeals() {
 }
 
 // 체질량지수: 대한비만학회 기준 (아시아·태평양)
-const BMI_LEVELS = [[18.5, '저체중', '#5B8FD6'], [23, '정상', '#4CAF7A'], [25, '비만 전단계', '#E0A82E'], [30, '1단계 비만', '#EE8A3C'], [35, '2단계 비만', '#E2604E'], [Infinity, '3단계 비만', '#C2414B']];
+// black & white: the six steps run from light grey to near-black
+const BMI_LEVELS = [[18.5, '저체중', '#C4C4C0'], [23, '정상', '#9E9E9A'], [25, '비만 전단계', '#7C7C79'], [30, '1단계 비만', '#5C5C5A'], [35, '2단계 비만', '#3E3E3D'], [Infinity, '3단계 비만', '#202020']];
 const BMI_MIN = 15, BMI_MAX = 40;
 function renderBMI(el, ctx) {
   el.classList.add('stagger', 'narrow');
@@ -79,8 +80,8 @@ function renderBMI(el, ctx) {
     if (!cur) { big.textContent = '–'; level.textContent = '키와 몸무게를 넣어 주세요'; level.style.color = ''; marker.style.left = '0%'; marker.style.opacity = '0'; notes.replaceChildren(); return; }
     const { bmi, wgt, m, lv } = cur;
     big.textContent = bmi.toFixed(1);
-    level.textContent = lv[1]; level.style.color = lv[2];
-    marker.style.opacity = '1'; marker.style.left = pos(bmi) + '%'; marker.style.background = lv[2];
+    level.textContent = lv[1];
+    marker.style.opacity = '1'; marker.style.left = pos(bmi) + '%'; marker.style.background = 'var(--fg)';
     const lo = 18.5 * m * m, hi = 22.9 * m * m;
     notes.replaceChildren(
       h('div', { class: 'row', style: { gap: '8px' } }, icon('check', 15), h('span', { class: 'small' }, `내 키의 정상 체중 범위: `, h('b', { class: 'num' }, `${lo.toFixed(1)} ~ ${hi.toFixed(1)} kg`))),

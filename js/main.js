@@ -1,7 +1,7 @@
 // main.js — app shell: router, top bar, menu drawer, profile popover, theme, background engines.
 import {
   $, h, icon, iconHTML, store, bus, commit, dkey, fmtDay, fmtDur, fmtClock, toast, modal, ripple, desktopNotify, chime,
-  levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE, LOCAL,
+  levelInfo, tierInfo, tierEmblem, record, evaluateTier, tasksOn, isDone, apiUrl, REMOTE, API_BASE, LOCAL, logoSVG,
 } from './core.js';
 import { startReminders } from './remind.js';
 import { startSync, offerJoin } from './sync.js';
@@ -178,7 +178,7 @@ function paintDrawer() {
     h('button', { class: 'nav-item' + (current?.id === n[0] ? ' on' : ''), style: { transitionDelay: `${i * 22}ms` }, onclick: () => go(n[0]) },
       icon(ico[n[0]], 20), h('span', null, n[1]), hints[n[0]] ? h('span', { class: 'hint num' }, hints[n[0]]) : null));
   drawer().replaceChildren(
-    h('div', { class: 'drawer-head' }, h('span', { class: 'brand' }, '하루'), h('span', { class: 'date' }, fmtDay(k))),
+    h('div', { class: 'drawer-head' }, h('span', { class: 'brand' }, h('span', { class: 'brand-mark', html: logoSVG(30) }), '하루'), h('span', { class: 'date' }, fmtDay(k))),
     ...items,
     h('div', { class: 'drawer-foot' },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: e => toggleTheme(e) }, icon(isDark() ? 'sun' : 'moon', 16), isDark() ? '화이트 모드' : '블랙 모드'),
