@@ -20,6 +20,9 @@ export function remindSelect(value) {
     h('option', { value: '', selected: value == null }, `기본 (${remindLabel(def)})`),
     REMINDS.map(([v, l]) => h('option', { value: v, selected: value != null && Number(value) === v }, l)));
 }
+// the four boxes of the 할 일 tab
+export const QUADS = [['now', '오늘 할 일'], ['plan', '계획할 일'], ['quick', '빨리 끝낼 일'], ['skip', '안 해도 될 일']];
+export const quadOf = t => t.quad || 'now';
 // 할 일 종류: typed freely (운동, 공부, 일, 개인…); left empty, the task is 공통
 export const CAT_EXAMPLES = ['운동', '공부', '일', '개인'];
 export const usedCats = () => [...new Set(store.s.tasks.map(t => t.cat).filter(Boolean))];
@@ -52,7 +55,7 @@ export function editEvent(ev, onDone) {
 }
 
 export function editTask(t, onDone) {
-  const v = { kind: t.kind, mode: t.mode || 'normal', days: [...(t.days || [])] };
+  const v = { kind: t.kind, mode: t.mode || 'normal', days: [...(t.days || [])], quad: quadOf(t) };
   const title = h('input', { class: 'input', value: t.title });
   const date = h('input', { class: 'input', type: 'date', value: t.date || dkey() });
   const time = h('input', { class: 'input', type: 'time', value: t.time || '' });
@@ -73,6 +76,7 @@ export function editTask(t, onDone) {
     title: t.kind === 'daily' ? '반복 할 일 수정' : '할 일 수정',
     body: h('div', { class: 'col' },
       field('제목', title),
+      h('div', { class: 'field' }, h('span', null, '칸'), h('div', { class: 'seg-scroll' }, seg(QUADS, v.quad, q => { v.quad = q; }))),
       h('div', { class: 'row wrap' }, seg([['once', '할 일 (한 번)'], ['daily', '매일 반복']], v.kind, k => { v.kind = k; sync(); }), seg([['normal', '일반'], ['nag', '독촉']], v.mode, m => { v.mode = m; })),
       h('div', { class: 'grid-2' }, dateField, field('시간 (선택)', time)),
       daysField,
@@ -89,6 +93,7 @@ export function editTask(t, onDone) {
         if (goal.value) t.goalId = goal.value; else delete t.goalId;
         if (cat.value.trim()) t.cat = cat.value.trim(); else delete t.cat;
         if (remind.value !== '') t.remind = Number(remind.value); else delete t.remind;
+        if (v.quad !== 'now') t.quad = v.quad; else delete t.quad;
         if (v.kind === 'once') {
           if (t.kind === 'daily') { t.start = date.value || dkey(); delete t.end; }
           t.kind = 'once'; t.date = date.value || dkey(); delete t.days;

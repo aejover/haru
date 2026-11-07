@@ -2,9 +2,10 @@
 // 영수증 사진 읽기(Claude), 소비 분석(Claude), CSV 내보내기.
 import { h, icon, store, commit, uid, dkey, addDays, fromKey, fmtShort, monthKey, modal, seg, toast, confirmDialog, promptDialog, gainXP, ai, jsonOf, textOf, aiFail, obj, pickFiles, fileToBlock, download } from '../core.js';
 
+// black & white: categories are told apart by shades of grey (darkest first)
 export const CATS = {
-  out: [['food', '식비', '#E07A6B'], ['cafe', '카페 · 간식', '#D9A441'], ['trans', '교통', '#5B8FD6'], ['shop', '쇼핑', '#E57FA8'], ['life', '생활', '#5FB3A3'], ['house', '주거 · 통신', '#9A7BD1'], ['fun', '문화 · 여가', '#E8935A'], ['health', '의료 · 건강', '#9DC25A'], ['edu', '교육', '#4FB0D9'], ['gift', '경조사 · 선물', '#C77DBA'], ['etc', '기타', '#7D8590']],
-  in: [['salary', '월급', '#22A06B'], ['allow', '용돈', '#3B82F6'], ['side', '부수입', '#D9A441'], ['fin', '금융 수입', '#5FB3A3'], ['etcin', '기타', '#7D8590']],
+  out: [['food', '식비', '#1F1F21'], ['cafe', '카페 · 간식', '#38383B'], ['trans', '교통', '#505054'], ['shop', '쇼핑', '#67676B'], ['life', '생활', '#7E7E82'], ['house', '주거 · 통신', '#949498'], ['fun', '문화 · 여가', '#A9A9AC'], ['health', '의료 · 건강', '#BCBCBF'], ['edu', '교육', '#5C5C60'], ['gift', '경조사 · 선물', '#8A8A8E'], ['etc', '기타', '#CBCBCD']],
+  in: [['salary', '월급', '#1F1F21'], ['allow', '용돈', '#505054'], ['side', '부수입', '#7E7E82'], ['fin', '금융 수입', '#A9A9AC'], ['etcin', '기타', '#CBCBCD']],
 };
 const CAT = Object.fromEntries([...CATS.out, ...CATS.in].map(([id, name, color]) => [id, { name, color }]));
 const METHODS = ['카드', '현금', '계좌이체', '간편결제'];
@@ -311,7 +312,7 @@ export default {
         h('div', { class: 'glass kpi-card' }, h('div', { class: 'k' }, '남은 돈 (수입 − 지출)'), h('div', { class: 'v num ' + (inc - out < 0 ? 'mn-out' : '') }, won(inc - out))),
         h('div', { class: 'glass kpi-card' }, h('div', { class: 'k' }, '예산'),
           b ? h('div', { class: 'v num ' + (out > b ? 'mn-out' : '') }, out > b ? `${won(out - b)} 초과` : `${won(b - out)} 남음`) : h('div', { class: 'v' }, h('small', null, '예산을 정해 보세요')),
-          b ? h('div', { class: 'bar thin' }, h('i', { style: { width: Math.min(100, (out / b) * 100) + '%', background: out > b ? 'var(--bad)' : out > b * 0.8 ? '#E0A82E' : 'var(--good)' } })) : null,
+          b ? h('div', { class: 'bar thin' }, h('i', { style: { width: Math.min(100, (out / b) * 100) + '%', background: out > b ? 'var(--fg)' : out > b * 0.8 ? 'var(--fg-2)' : 'var(--muted)' } })) : null,
           b && isNow && out < b ? h('div', { class: 'tiny muted' }, `남은 ${daysLeft}일 동안 하루 ${won((b - out) / daysLeft)}씩 쓸 수 있어요`) : null));
     }
     function paintCharts() {

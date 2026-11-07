@@ -9,38 +9,113 @@ import { openViewer } from '../viewer.js';
 import timetable from './timetable.js';
 import { pager } from '../pager.js';
 
+// ---------- views: 월간 · 2주 · 1주 · 3일 · 타임라인 · 일간 ----------
+export const CAL_VIEWS = [['month', '월간'], ['2w', '2주'], ['week', '1주'], ['3d', '3일'], ['timeline', '타임라인'], ['day', '일간']];
+const SPAN = { '2w': 14, week: 7, '3d': 3, timeline: 14, day: 1 };
+const weekStart = k => addDays(k, -fromKey(k).getDay());
+// the days a view shows: week views start on Sunday, the others on the anchor day
+export const viewDays = (view, anchor) => Array.from({ length: SPAN[view] }, (_, i) => addDays(view === '2w' || view === 'week' ? weekStart(anchor) : anchor, i));
+const dayOf = k => { const s = store.s; return {
+  evs: s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99')),
+  todos: s.tasks.filter(t => t.kind === 'once' && t.date === k),
+  routines: tasksOn(k).filter(t => t.kind === 'daily'),
+  dds: (s.ddays || []).filter(x => x.date === k),
+}; };
+
+// one day square (month and week views); max = how many items fit before "+n"
+function dayCell(k, { sel, onPick, other = false, max = 3 }) {
+  const d = fromKey(k), { evs, todos, routines, dds } = dayOf(k);
+  // tapping an item opens its editor (tapping the empty part of the day selects it)
+  const open = fn => ev => { ev.stopPropagation(); onPick(k); fn(); };
+  const items = [
+    ...dds.map(x => h('div', { class: 'cal-ev dday' }, `${x.title}`)),
+    ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : ''), title: '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))) }, (e.time ? e.time + ' ' : '') + e.title)),
+    ...todos.map(t => h('div', { class: 'cal-ev todo', title: '눌러서 수정', onclick: open(() => editTask(t, () => onPick(k))) }, (isDone(t, k) ? '✓ ' : '') + t.title)),
+  ];
+  return h('button', {
+    class: 'cal-cell' + (other ? ' other' : '') + (k === dkey() ? ' today' : '') + (k === sel ? ' sel' : '') + (dds.length ? ' has-dday' : ''),
+    onclick: () => onPick(k), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일`,
+  }, h('span', { class: 'd' }, d.getDate()), h('span', { class: 'cal-wd' }, WEEK[d.getDay()]), items.slice(0, max),
+    items.length > max ? h('div', { class: 'cal-more' }, `+${items.length - max}`) : null,
+    // phones show dots instead of squeezed titles; the day panel below lists them
+    evs.length || todos.length ? h('span', { class: 'cal-dots' }, evs.slice(0, 3).map(() => h('i')), todos.slice(0, 2).map(() => h('i', { class: 'r' }))) : null,
+    routines.length && items.length < max ? h('div', { class: 'cal-ev routine' }, `루틴 ${routines.filter(t => isDone(t, k)).length}/${routines.length}`) : null);
+}
+const dowRow = () => WEEK.map((w, i) => h('div', { class: 'cal-dow' + (i === 0 ? ' sun' : '') }, w));
+
 function bigMonth(ym, sel, onPick) {
   const [y, m] = ym.split('-').map(Number);
   const first = new Date(y, m - 1, 1);
   const start = addDays(dkey(first), -first.getDay());
-  const today = dkey();
-  const s = store.s;
-  const grid = h('div', { class: 'cal-grid cal-big' }, WEEK.map((w, i) => h('div', { class: 'cal-dow' + (i === 0 ? ' sun' : '') }, w)));
+  const grid = h('div', { class: 'cal-grid cal-big' }, dowRow());
   for (let i = 0; i < 42; i++) {
-    const k = addDays(start, i), d = fromKey(k);
-    if (i >= 35 && d.getMonth() !== m - 1) break;
-    const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
-    const todos = s.tasks.filter(t => t.kind === 'once' && t.date === k);
-    const routines = tasksOn(k).filter(t => t.kind === 'daily');
-    const dds = (s.ddays || []).filter(x => x.date === k);
-    // tapping an item in the month grid opens its editor (tapping the empty part of the day selects it)
-    const open = fn => ev => { ev.stopPropagation(); onPick(k); fn(); };
-    const items = [
-      ...dds.map(x => h('div', { class: 'cal-ev dday' }, `${x.title}`)),
-      ...evs.map(e => h('div', { class: 'cal-ev' + (e.source === 'image' ? ' ai' : ''), title: '눌러서 수정', onclick: open(() => editEvent(e, () => onPick(k))) }, (e.time ? e.time + ' ' : '') + e.title)),
-      ...todos.map(t => h('div', { class: 'cal-ev todo', title: '눌러서 수정', onclick: open(() => editTask(t, () => onPick(k))) }, (isDone(t, k) ? '✓ ' : '') + t.title)),
-    ];
-    const max = 3;
-    grid.append(h('button', {
-      class: 'cal-cell' + (d.getMonth() !== m - 1 ? ' other' : '') + (k === today ? ' today' : '') + (k === sel ? ' sel' : '') + (dds.length ? ' has-dday' : ''),
-      onclick: () => onPick(k), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일`,
-    }, h('span', { class: 'd' }, d.getDate()), items.slice(0, max),
-      items.length > max ? h('div', { class: 'cal-more' }, `+${items.length - max}`) : null,
-      // phones show dots instead of squeezed titles; the day panel below lists them
-      evs.length || todos.length ? h('span', { class: 'cal-dots' }, evs.slice(0, 3).map(() => h('i')), todos.slice(0, 2).map(() => h('i', { class: 'r' }))) : null,
-      routines.length && items.length < max ? h('div', { class: 'cal-ev routine' }, `루틴 ${routines.filter(t => isDone(t, k)).length}/${routines.length}`) : null));
+    const k = addDays(start, i);
+    if (i >= 35 && fromKey(k).getMonth() !== m - 1) break;
+    grid.append(dayCell(k, { sel, onPick, other: fromKey(k).getMonth() !== m - 1 }));
   }
   return grid;
+}
+// 2주 / 1주: the same squares, taller, with room for more items (1주 turns into a list of days on phones)
+function weekGrid(days, sel, onPick, view) {
+  return h('div', { class: `cal-grid cal-big cal-${view}` }, dowRow(), days.map(k => dayCell(k, { sel, onPick, max: view === 'week' ? 8 : 4 })));
+}
+
+// 3일 / 일간: hours down the side, each day a column; timed items sit at their hour (an hour long, side by
+// side when they overlap), untimed ones in the 종일 row. Tapping an empty hour starts an entry there.
+const HOUR = 46;
+function timeGrid(days, sel, onPick, onSlot) {
+  const today = dkey(), now = new Date();
+  const cols = { '--cols': days.length };
+  const headRow = h('div', { class: 'tg-row tg-head', style: cols }, h('span', { class: 'tg-corner' }),
+    days.map(k => { const d = fromKey(k); return h('button', { class: 'tg-day' + (k === today ? ' today' : '') + (k === sel ? ' sel' : ''), onclick: () => onPick(k) }, h('span', { class: 'tg-dow' }, WEEK[d.getDay()]), h('b', { class: 'tg-date num' }, d.getDate())); }));
+  const allRow = h('div', { class: 'tg-row tg-all', style: cols }, h('span', { class: 'tg-lbl' }, '종일'),
+    days.map(k => { const { evs, todos, dds } = dayOf(k); return h('div', { class: 'tg-allcell' },
+      dds.map(x => h('span', { class: 'tg-chip dday' }, x.title)),
+      evs.filter(e => !e.time).map(e => h('button', { class: 'tg-chip', onclick: () => editEvent(e, () => onPick(k)) }, e.title)),
+      todos.filter(t => !t.time).map(t => h('button', { class: 'tg-chip todo' + (isDone(t, k) ? ' done' : ''), onclick: () => editTask(t, () => onPick(k)) }, t.title))); }));
+  const times = h('div', { class: 'tg-times' }, Array.from({ length: 24 }, (_, i) => h('span', null, i ? `${i}` : '')));
+  const colEls = days.map(k => {
+    const { evs } = dayOf(k);
+    const timed = [...evs.filter(e => e.time).map(e => ({ at: e.time, title: e.title, open: () => editEvent(e, () => onPick(k)) })),
+      ...tasksOn(k).filter(t => t.time).map(t => ({ at: t.time, title: t.title, todo: true, done: isDone(t, k), open: () => editTask(t, () => onPick(k)) }))]
+      .map(x => ({ ...x, min: Number(x.at.slice(0, 2)) * 60 + Number(x.at.slice(3, 5)) })).sort((a, b) => a.min - b.min);
+    const lanes = [];
+    timed.forEach(x => { let i = lanes.findIndex(end => end <= x.min); if (i < 0) i = lanes.push(0) - 1; lanes[i] = x.min + 60; x.lane = i; });
+    const n = Math.max(1, lanes.length);
+    const col = h('div', { class: 'tg-col' + (k === today ? ' today' : ''), style: { height: 24 * HOUR + 'px' } },
+      timed.map(x => h('button', { class: 'tg-ev' + (x.todo ? ' todo' : '') + (x.done ? ' done' : ''), style: { top: (x.min * HOUR) / 60 + 'px', height: HOUR - 3 + 'px', left: `calc(${(100 / n) * x.lane}% + 2px)`, width: `calc(${100 / n}% - 4px)` }, onclick: e => { e.stopPropagation(); x.open(); } },
+        h('b', { class: 'num' }, x.at), h('span', null, x.title))),
+      k === today ? h('i', { class: 'tg-now', style: { top: ((now.getHours() * 60 + now.getMinutes()) * HOUR) / 60 + 'px' } }) : null);
+    col.addEventListener('click', e => { if (e.target === col) onSlot(k, Math.min(23, Math.floor(e.offsetY / HOUR))); });
+    return col;
+  });
+  const body = h('div', { class: 'tg-row tg-body', style: cols }, times, colEls);
+  // open at the morning (or an hour before now, today)
+  requestAnimationFrame(() => { body.scrollTop = Math.max(0, (days.includes(today) ? now.getHours() - 1 : 7) * HOUR); });
+  return h('div', { class: 'tg' }, headRow, allRow, body);
+}
+
+// 타임라인: the next two weeks as one list, day by day (days with nothing on them are skipped)
+function timeline(days, sel, onPick) {
+  const today = dkey();
+  const groups = days.map(k => {
+    const { evs, todos, routines, dds } = dayOf(k);
+    const items = [
+      ...dds.map(x => ({ at: 'D', title: `${x.title} ${ddayLabel(x.date)}`, kind: 'dday' })),
+      ...evs.map(e => ({ at: e.time, title: e.title, kind: 'ev', note: e.note, open: () => editEvent(e, () => onPick(k)) })),
+      ...[...todos, ...routines].map(t => ({ at: t.time, title: t.title, kind: 'todo', done: isDone(t, k), open: () => editTask(t, () => onPick(k)) })),
+    ].sort((a, b) => (a.at || '99').localeCompare(b.at || '99'));
+    return { k, items };
+  }).filter(g => g.items.length || g.k === today);
+  if (!groups.length) return h('div', { class: 'empty' }, icon('calendar', 28), '이 2주 동안은 일정도 할 일도 없어요.');
+  return h('div', { class: 'tl' }, groups.map(({ k, items }) => {
+    const d = fromKey(k);
+    return h('div', { class: 'tl-day' + (k === today ? ' today' : '') + (k === sel ? ' sel' : '') },
+      h('button', { class: 'tl-date', onclick: () => onPick(k) }, h('b', { class: 'num' }, d.getDate()), h('span', null, `${d.getMonth() + 1}월 · ${WEEK[d.getDay()]}`)),
+      h('div', { class: 'tl-items' }, items.length ? items.map(x => h(x.open ? 'button' : 'div', { class: `tl-item ${x.kind}` + (x.done ? ' done' : ''), onclick: x.open },
+        h('span', { class: 'tl-time num' }, x.kind === 'dday' ? '디데이' : x.at || '종일'), h('span', { class: 'tl-title' }, x.title, x.note ? h('small', null, ` · ${x.note}`) : null)))
+        : h('div', { class: 'tl-none' }, '비어 있어요')));
+  }));
 }
 
 const EXTRACT = obj({
@@ -78,6 +153,10 @@ function renderMonth(el, ctx, arg) {
     s.ddays ||= [];
     let sel = /^\d{4}-\d{2}-\d{2}$/.test(arg || '') ? arg : dkey();
     let ym = sel.slice(0, 7);
+    // which view (remembered), and the day the non-month views are laid out from
+    let view = (() => { try { const v = localStorage.getItem('haru.calView'); return CAL_VIEWS.some(x => x[0] === v) ? v : 'month'; } catch { return 'month'; } })();
+    let anchor = sel;
+    let presetTime = ''; // an empty hour tapped in 3일 / 일간 fills the add form's time
 
     const head = h('div', { class: 'cal-head' });
     const imgBox = h('div', { class: 'cal-img' });
@@ -85,19 +164,30 @@ function renderMonth(el, ctx, arg) {
     const gridBox = h('section', { class: 'glass card cal-swipe', 'data-noswipe': '' });
     const panel = h('aside', { class: 'day-panel' });
 
-    // slide the month out one way and the next one in from the other side
-    const EASE = 'cubic-bezier(.2, .9, .3, 1)';
+    // slide the current page out one way and the next one in from the other side (a month, or the view's span)
+    const EASE = 'cubic-bezier(.25, .9, .3, 1)';
     function slideMonth(dir, from = 0) {
       const [y, m] = ym.split('-').map(Number);
       const old = gridBox.firstChild;
       const swap = () => {
-        ym = monthKey(new Date(y, m - 1 + dir, 1));
-        paintHead(); paintImage(); paintGrid();
-        gridBox.firstChild?.animate([{ transform: `translateX(${dir * 28}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 520, easing: EASE });
+        if (view === 'month') ym = monthKey(new Date(y, m - 1 + dir, 1));
+        else {
+          anchor = addDays(anchor, dir * SPAN[view]);
+          const days = viewDays(view, anchor);
+          sel = days.includes(dkey()) ? dkey() : days[0]; ym = sel.slice(0, 7);
+        }
+        paintHead(); paintImage(); paintGrid(); if (view !== 'month') paintPanel();
+        gridBox.firstChild?.animate([{ transform: `translateX(${dir * 12}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: EASE });
       };
       if (!old || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap();
-      const a = old.animate([{ transform: `translateX(${from}px)`, opacity: Math.max(0.4, 1 - Math.abs(from) / 500) }, { transform: `translateX(${-dir * 28}%)`, opacity: 0 }], { duration: 200, easing: 'ease-in', fill: 'forwards' });
+      const a = old.animate([{ transform: `translateX(${from}px)`, opacity: Math.max(0.4, 1 - Math.abs(from) / 500) }, { transform: `translateX(${-dir * 12}%)`, opacity: 0 }], { duration: 180, easing: 'ease-in', fill: 'forwards' });
       a.onfinish = swap;
+    }
+    function setView(v) {
+      view = v; anchor = sel;
+      try { localStorage.setItem('haru.calView', v); } catch { /* ignore */ }
+      paintHead(); paintImage(); paintGrid();
+      gridBox.firstChild?.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: EASE });
     }
     let sw = null;
     gridBox.addEventListener('pointerdown', e => { if (e.button > 0) return; sw = { x: e.clientX, y: e.clientY, t: Date.now(), on: false, dead: false }; });
@@ -130,19 +220,30 @@ function renderMonth(el, ctx, arg) {
     window.addEventListener('pointermove', swMove); window.addEventListener('pointerup', swEnd); window.addEventListener('pointercancel', swEnd);
     ctx.cleanup(() => { window.removeEventListener('pointermove', swMove); window.removeEventListener('pointerup', swEnd); window.removeEventListener('pointercancel', swEnd); });
 
+    // what the header says: the month, a range of days, or one day
+    function rangeLabel() {
+      if (view === 'month') { const [y, m] = ym.split('-').map(Number); return `${y}년 ${m}월`; }
+      if (view === 'day') return fmtDay(anchor);
+      const days = viewDays(view, anchor), a = fromKey(days[0]), b = fromKey(days[days.length - 1]);
+      const yr = a.getFullYear() !== new Date().getFullYear() ? `${a.getFullYear()}년 ` : '';
+      return `${yr}${a.getMonth() + 1}월 ${a.getDate()}일 – ${b.getMonth() !== a.getMonth() ? `${b.getMonth() + 1}월 ` : ''}${b.getDate()}일`;
+    }
+    const viewSeg = seg(CAL_VIEWS, view, setView);
     function paintHead() {
-      const [y, m] = ym.split('-').map(Number);
+      const unit = view === 'month' ? '달' : view === 'day' ? '날' : '기간';
       head.replaceChildren(
-        h('button', { class: 'btn-icon glass-btn', 'aria-label': '이전 달', onclick: () => slideMonth(-1) }, icon('left')),
-        h('span', { class: 'month num' }, `${y}년 ${m}월`),
-        h('button', { class: 'btn-icon glass-btn', 'aria-label': '다음 달', onclick: () => slideMonth(1) }, icon('right')),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { sel = dkey(); ym = monthKey(); paintAll(); } }, '오늘'),
-        h('span', { class: 'spacer' }),
-        h('span', { class: 'small muted' }, s.settings.ntfyTopic ? `일정 당일 ${s.settings.briefHour}시에 휴대폰으로 알려 드려요` : '휴대폰 알림은 설정에서 연결할 수 있어요'));
+        h('div', { class: 'row cal-nav' },
+          h('button', { class: 'btn-icon glass-btn', 'aria-label': `이전 ${unit}`, onclick: () => slideMonth(-1) }, icon('left')),
+          h('span', { class: 'month num' + (view === 'month' ? '' : ' range') }, rangeLabel()),
+          h('button', { class: 'btn-icon glass-btn', 'aria-label': `다음 ${unit}`, onclick: () => slideMonth(1) }, icon('right')),
+          h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { sel = anchor = dkey(); ym = monthKey(); paintAll(); } }, '오늘')),
+        h('div', { class: 'seg-scroll cal-views' }, viewSeg),
+        h('span', { class: 'small muted cal-note' }, s.settings.ntfyTopic ? `일정 당일 ${s.settings.briefHour}시에 휴대폰으로 알려 드려요` : '휴대폰 알림은 설정에서 연결할 수 있어요'));
     }
 
     // ----- image calendar -----
     function paintImage() {
+      imgBox.hidden = view !== 'month'; // a month's photo belongs with the month view
       const img = s.calImages[ym];
       if (!img) {
         const dz = h('div', { class: 'dropzone', role: 'button', tabindex: '0', onclick: () => pick(), onkeydown: e => { if (e.key === 'Enter') pick(); } },
@@ -220,14 +321,25 @@ function renderMonth(el, ctx, arg) {
     }
 
     // ----- grid & day panel -----
-    function paintGrid() { gridBox.replaceChildren(bigMonth(ym, sel, k => { sel = k; if (k.slice(0, 7) !== ym) ym = k.slice(0, 7); paintAll(); })); }
+    function paintGrid() {
+      // picking a day selects it; in the shorter views a day outside the window moves the window there
+      const pick = k => { sel = k; if (view === 'month') { if (k.slice(0, 7) !== ym) ym = k.slice(0, 7); } else if (!viewDays(view, anchor).includes(k)) anchor = k; paintAll(); };
+      const slot = (k, hr) => { sel = k; presetTime = `${String(hr).padStart(2, '0')}:00`; paintAll(); setTimeout(() => panel.querySelector('input[aria-label="제목"]')?.focus(), 80); };
+      const days = view === 'month' ? null : viewDays(view, anchor);
+      gridBox.dataset.view = view;
+      gridBox.replaceChildren(view === 'month' ? bigMonth(ym, sel, pick)
+        : view === '2w' || view === 'week' ? weekGrid(days, sel, pick, view)
+          : view === 'timeline' ? timeline(days, sel, pick)
+            : timeGrid(days, sel, pick, slot));
+    }
     function paintPanel() {
       const k = sel;
       const evs = s.events.filter(e => e.date === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
       const list = tasksOn(k);
       const f = { type: 'event', mode: 'normal', days: [fromKey(k).getDay()] };
       const title = h('input', { class: 'input', placeholder: '제목', 'aria-label': '제목', onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) add(); } });
-      const time = h('input', { class: 'input', type: 'time', 'aria-label': '시간', style: { width: '130px' } });
+      const time = h('input', { class: 'input', type: 'time', 'aria-label': '시간', value: presetTime, style: { width: '130px' } });
+      presetTime = '';
       const note = h('input', { class: 'input', placeholder: '메모 (장소, 준비물…)', 'aria-label': '메모' });
       const dayRow = h('div', { class: 'row wrap', style: { gap: '6px' }, hidden: true }, WEEK.map((w, i) => {
         const b = h('button', { class: 'chip sm ' + (f.days.includes(i) ? 'ink' : 'line'), onclick: () => { f.days = f.days.includes(i) ? f.days.filter(x => x !== i) : [...f.days, i]; b.className = 'chip sm ' + (f.days.includes(i) ? 'ink' : 'line'); } }, w);
@@ -285,7 +397,7 @@ function renderMonth(el, ctx, arg) {
         h('div', { class: 'row between' }, h('h3', { class: 'h3' }, '디데이'), h('span', { class: 'small muted' }, '홈 화면에도 보여요')),
         list.length ? h('div', null, list.map(x => h('div', { class: 'item-row' },
           h('span', { class: 'chip sm ' + (ddayN(x.date) === 0 ? 'ink' : 'line') + ' num' }, ddayLabel(x.date)),
-          h('button', { class: 'grow item-edit', title: '이 날로 가기', onclick: () => { sel = x.date; ym = x.date.slice(0, 7); paintAll(); } }, x.title, h('div', { class: 'tiny muted' }, fmtShort(x.date))),
+          h('button', { class: 'grow item-edit', title: '이 날로 가기', onclick: () => { sel = anchor = x.date; ym = x.date.slice(0, 7); paintAll(); } }, x.title, h('div', { class: 'tiny muted' }, fmtShort(x.date))),
           h('button', { class: 'btn-icon sm', 'aria-label': `${x.title} 디데이 삭제`, onclick: () => { s.ddays = s.ddays.filter(y => y !== x); commit('ddays'); paintGrid(); paintPanel(); } }, icon('trash', 15))))) : null,
         h('div', { class: 'row wrap' }, h('div', { class: 'grow', style: { minWidth: '140px' } }, name), date),
         h('button', { class: 'btn btn-ghost', onclick: addDday }, icon('flag', 16), '디데이 만들기'));

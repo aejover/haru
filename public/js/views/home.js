@@ -2,15 +2,12 @@
 // time-progress; swipe right for 포포.
 import {
   h, icon, store, commit, bus, dkey, addDays, fromKey, fmtDay, pad, WEEK, monthKey, toast, seg, checkEl,
-  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify, ddayN, ddayLabel,
+  tasksOn, isDone, setDone, addTask, removeTask, dayStats, desktopNotify, ddayN, ddayLabel, logoSVG, fmtDur, fmtShort,
 } from '../core.js';
 import { getWeather } from '../weather.js';
 import { editTask, editEvent } from './edit-item.js';
 import { googleConfigured, googleLinked, googleSignIn, gmailSummary } from '../google.js';
 import { popoPage } from './popo.js';
-
-// the six-armed asterisk on the hero card (in the accent colour)
-const MARK = '<svg viewBox="0 0 24 24" width="22" height="22"><g stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v18"/><path d="M4.2 7.5l15.6 9"/><path d="M4.2 16.5l15.6-9"/></g></svg>';
 
 export function taskRow(t, k, { onChange, hideGoal } = {}) {
   const done = isDone(t, k);
@@ -249,13 +246,37 @@ export default {
     ctx.on('change', w => { if (['tasks', 'events'].includes(w)) { paintTasks(); paintCal(); } if (w === 'profile' && document.activeElement !== motto) motto.textContent = s.profile.motivation || ''; });
     ctx.on('newday', () => { paintTasks(); paintCal(); });
 
+    // ----- dashboard tiles: the day at a glance, each one opens its tab -----
+    const tiles = h('div', { class: 'home-tiles' });
+    function paintTiles() {
+      const k = dkey(), st = dayStats(k), now = new Date();
+      const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const next = s.events.filter(e => e.date > k || (e.date === k && (!e.time || e.time >= hm)))
+        .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '99').localeCompare(b.time || '99'))[0];
+      const sessions = s.pomo.sessions?.[k] || 0;
+      const memo = [...s.memos].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+      const memoText = memo ? h('div', { html: memo.html || '' }).textContent.trim() : '';
+      const tile = (href, label, big, sub, extra, wordy) => h('a', { class: 'tile glass', href },
+        h('span', { class: 'tile-lbl' }, label), h('b', { class: 'tile-big' + (wordy ? ' wordy' : '') }, big), sub ? h('span', { class: 'tile-sub' }, sub) : null, extra);
+      tiles.replaceChildren(
+        tile('#checklist', '오늘 할 일', `${st.done}/${st.total}`, st.total ? `${Math.round(st.pct)}% 끝냈어요` : '오늘은 할 일이 없어요', h('div', { class: 'bar thin' }, h('i', { style: { width: st.pct + '%' } }))),
+        tile(next ? `#calendar/${next.date}` : '#calendar/month', '다음 일정', next ? next.time || '종일' : '없음', next ? `${next.date === k ? '오늘' : fmtShort(next.date)} · ${next.title}` : '다가오는 일정이 없어요'),
+        tile('#pomodoro', '오늘 집중', fmtDur(s.focus[k] || 0, true), sessions ? `집중 ${sessions}회 끝냄` : '뽀모도로로 시작해 보세요'),
+        tile('#memo', '최근 메모', memo ? memo.title || '제목 없음' : '없음', memo ? memoText.slice(0, 40) || '내용 없음' : '생각나는 걸 적어 보세요', null, true));
+    }
+    paintTiles();
+    ctx.every(30e3, paintTiles);
+    ctx.on('change', w => { if (['tasks', 'events', 'memos', 'pomo', 'all'].includes(w)) paintTiles(); });
+    ctx.on('newday', paintTiles);
+    mail.classList.add('mail-box');
+
     // two pages side by side: the usual home, and 포포 one swipe to the right
     const main = h('div', { class: 'home-main stagger' },
       // the clock as a small glass poster: mark and year in the corners, the date in an outline pill
       h('section', { class: 'hero glass' },
-        h('div', { class: 'hero-top' }, h('span', { class: 'hero-mark', 'aria-hidden': 'true', html: MARK }), h('span', { class: 'hero-brand' }, '하루'), h('span', { class: 'spacer' }), year),
+        h('div', { class: 'hero-top' }, h('span', { class: 'hero-mark', 'aria-hidden': 'true', html: logoSVG(34) }), h('span', { class: 'hero-brand' }, '하루'), h('span', { class: 'spacer' }), year),
         dateEl, clock, weather, ddays),
-      mail, mottoBox, swipeCard, pendingCard, progress);
+      tiles, mail, mottoBox, swipeCard, pendingCard, progress);
     const popo = popoPage(ctx);
     const track = h('div', { class: 'home-track' }, main, popo.page);
     const pager = h('div', { class: 'home-pager' }, track);

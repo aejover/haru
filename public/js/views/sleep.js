@@ -71,10 +71,10 @@ function energyChart(pts, { peak, dip, bed, now }) {
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="오늘의 에너지 예측">`;
   svg += `<defs><linearGradient id="eg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--fg)" stop-opacity=".22"/><stop offset="1" stop-color="var(--fg)" stop-opacity="0"/></linearGradient></defs>`;
   [0, 50, 100].forEach(v => { svg += `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`; });
-  if (peak) svg += `<rect x="${x(peak[0])}" y="${T}" width="${x(peak[1]) - x(peak[0])}" height="${H - B - T}" fill="#22A06B" opacity=".13" rx="6"/>`;
+  if (peak) svg += `<rect x="${x(peak[0])}" y="${T}" width="${x(peak[1]) - x(peak[0])}" height="${H - B - T}" fill="var(--fg)" opacity=".08" rx="6"/>`;
   svg += `<path d="${line} L${x(t1)},${y(0)} L${x(t0)},${y(0)} Z" fill="url(#eg)"/><path d="${line}" fill="none" stroke="var(--fg)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
-  if (dip) svg += `<circle cx="${x(dip.t)}" cy="${y(dip.v)}" r="5" fill="#E0A82E"/><text x="${x(dip.t)}" y="${y(dip.v) + 18}" text-anchor="middle" style="fill:#C98F14;font-weight:700">졸린 시간</text>`;
-  if (bed != null && bed > t0 && bed < t1) svg += `<line x1="${x(bed)}" x2="${x(bed)}" y1="${T}" y2="${H - B}" stroke="#5B8FD6" stroke-dasharray="4 4" stroke-width="1.6"/><text x="${x(bed) - 4}" y="${T + 10}" text-anchor="end" style="fill:#5B8FD6;font-weight:700">취침 권장</text>`;
+  if (dip) svg += `<circle cx="${x(dip.t)}" cy="${y(dip.v)}" r="5" fill="var(--bg)" stroke="var(--fg)" stroke-width="2.4"/><text x="${x(dip.t)}" y="${y(dip.v) + 18}" text-anchor="middle" style="fill:var(--fg);font-weight:700">졸린 시간</text>`;
+  if (bed != null && bed > t0 && bed < t1) svg += `<line x1="${x(bed)}" x2="${x(bed)}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1.6"/><text x="${x(bed) - 4}" y="${T + 10}" text-anchor="end" style="fill:var(--muted);font-weight:700">취침 권장</text>`;
   if (now != null && now > t0 && now < t1) { const p = pts.reduce((a, b) => (Math.abs(b.t - now) < Math.abs(a.t - now) ? b : a)); svg += `<circle cx="${x(now)}" cy="${y(p.v)}" r="6" fill="var(--bg)" stroke="var(--fg)" stroke-width="3"/><text class="hl" x="${x(now)}" y="${y(p.v) - 12}" text-anchor="middle">지금 ${Math.round(p.v)}</text>`; }
   for (let t = Math.ceil(t0 / 2) * 2; t <= t1; t += 2) svg += `<text x="${x(t)}" y="${H - 8}" text-anchor="middle">${esc(clock(t).slice(0, 2).replace(/^0/, ''))}시</text>`;
   return h('div', { class: 'chart', html: svg + '</svg>' });
@@ -117,9 +117,9 @@ export function renderSleep(box, ctx) {
       h('div', { class: 'row between wrap' }, h('h2', { class: 'h2' }, '오늘의 에너지 예측'), h('span', { class: 'small muted' }, last ? `어젯밤 ${fmtH(lastDur)} 잠 · 수면 부채 ${fmtH(debt)} 반영` : '기록이 없어 적정 수면을 잤다고 가정했어요')),
       energyChart(pts, { peak, dip, bed: bedT, now: nowT }),
       h('div', { class: 'energy-tips' },
-        peak ? h('div', null, h('i', { style: { background: '#22A06B' } }), h('b', null, '집중이 잘 되는 시간 '), `${clock(peak[0])}–${clock(peak[1])} · 어려운 일은 이때`) : null,
-        dip ? h('div', null, h('i', { style: { background: '#E0A82E' } }), h('b', null, '졸린 시간 '), `${clock(dip.t)} 무렵 · 가벼운 일이나 10–20분 낮잠`) : null,
-        h('div', null, h('i', { style: { background: '#5B8FD6' } }), h('b', null, '권장 취침 '), `${clock(bedRec)} · 카페인은 ${clock(bedRec - 8)} 전까지`)),
+        peak ? h('div', null, h('i', { style: { background: 'var(--fg)' } }), h('b', null, '집중이 잘 되는 시간 '), `${clock(peak[0])}–${clock(peak[1])} · 어려운 일은 이때`) : null,
+        dip ? h('div', null, h('i', { style: { background: 'var(--bg)', boxShadow: 'inset 0 0 0 2px var(--fg)' } }), h('b', null, '졸린 시간 '), `${clock(dip.t)} 무렵 · 가벼운 일이나 10–20분 낮잠`) : null,
+        h('div', null, h('i', { style: { background: 'var(--muted)' } }), h('b', null, '권장 취침 '), `${clock(bedRec)} · 카페인은 ${clock(bedRec - 8)} 전까지`)),
       h('p', { class: 'tiny muted', style: { margin: 0 } }, '수면 과학의 2-프로세스 모델(수면 압력 + 생체 리듬)로 추정한 그래프예요. 의학적 판단이 아니라 하루를 계획하는 참고용이에요.'));
 
     // log form
@@ -129,7 +129,7 @@ export function renderSleep(box, ctx) {
     let quality = st.logs[today]?.quality || 3;
     const qRow = h('div', { class: 'rate-row' });
     const Q = [[1, '피곤'], [2, '별로'], [3, '보통'], [4, '개운'], [5, '최고']];
-    const paintQ = () => qRow.replaceChildren(Q.map(([n, l]) => h('button', { type: 'button', class: 'rate' + (quality === n ? ' on' : ''), style: { '--rc': ['#E5484D', '#F07B32', '#E0A82E', '#3B82F6', '#22A06B'][n - 1] }, onclick: () => { quality = n; paintQ(); } }, icon(`face${n}`, 24, 1.6), l)));
+    const paintQ = () => qRow.replaceChildren(Q.map(([n, l]) => h('button', { type: 'button', class: 'rate' + (quality === n ? ' on' : ''), style: { '--rc': 'var(--ink)' }, onclick: () => { quality = n; paintQ(); } }, icon(`face${n}`, 24, 1.6), l)));
     paintQ();
     const goal = h('input', { class: 'input', type: 'time', value: st.wakeGoal || '07:00', style: { width: '130px' }, onchange: e => { st.wakeGoal = e.target.value || '07:00'; commit('sleep'); paint(); } });
     const field = (l, el) => h('label', { class: 'field' }, h('span', null, l), el);
