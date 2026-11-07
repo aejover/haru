@@ -37,7 +37,7 @@
 <script>
   try {
     var t = JSON.parse(localStorage.getItem('haru.theme') || '"system"');
-    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    if (t === 'light' || t === 'dark' || t === 'special') document.documentElement.dataset.theme = t;
   } catch (e) {}
 </script>
 </head>
