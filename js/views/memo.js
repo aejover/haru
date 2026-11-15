@@ -363,6 +363,23 @@ export default {
     }
     let stopRecording = null, destroyBlocks = null;
     ctx.cleanup(() => { stopRecording?.(); destroyBlocks?.(); });
+    // the pinned toolbar slips away 3 s after scrolling stops (only while it's pinned, not while it's in
+    // use) and comes back the moment the memo scrolls again
+    const view = document.getElementById('view');
+    let idle = 0;
+    const onScroll = () => {
+      const bar = el.querySelector('.memo-tools');
+      if (!bar) return;
+      bar.classList.remove('tucked');
+      clearTimeout(idle);
+      idle = setTimeout(() => {
+        const above = bar.previousElementSibling?.getBoundingClientRect(); // the title row sits right above it unless pinned
+        const pinned = above && above.bottom < bar.getBoundingClientRect().top - 30;
+        if (pinned && !bar.matches(':hover, :focus-within')) bar.classList.add('tucked');
+      }, 3000);
+    };
+    view.addEventListener('scroll', onScroll, { passive: true });
+    ctx.cleanup(() => { view.removeEventListener('scroll', onScroll); clearTimeout(idle); });
     paintList(); paintEditor();
   },
 };

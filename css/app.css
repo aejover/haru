@@ -838,7 +838,9 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 .memo-title { font-size: 24px; font-weight: 750; letter-spacing: -.03em; }
 /* the formatting bar stays just under the top bar while a long memo scrolls */
 /* (top: 0 is already just below the top bar: the scrolling view's padding makes room for it) */
-.memo-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; position: sticky; top: 0; z-index: 8; margin: 0 -10px; padding: 6px 10px; border-radius: 14px; background: var(--glass-solid); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+.memo-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; position: sticky; top: 0; z-index: 8; margin: 0 -10px; padding: 6px 10px; border-radius: 14px; background: var(--glass-solid); box-shadow: 0 6px 18px rgba(0,0,0,.08); transition: transform .35s var(--ease), opacity .3s var(--ease); }
+/* tucked away 3 s after scrolling stops (memo.js); any scroll brings it back */
+.memo-tools.tucked { transform: translateY(-115%); opacity: 0; pointer-events: none; }
 .memo-canvas-wrap { position: relative; min-width: 0; }
 .memo-plus { position: absolute; left: -26px; z-index: 3; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--fg); background: var(--tint-2); opacity: .45; transition: opacity .2s, transform .45s var(--chewy), top .25s var(--ease); }
 .memo-plus:hover, .memo-plus.open { opacity: 1; }
