@@ -827,7 +827,10 @@ html.theme-vt::view-transition-old(page), html.theme-vt::view-transition-new(pag
 /* ---------- MEMO ---------- */
 .memo-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .memo-layout { grid-template-columns: minmax(0, 1fr); } .memo-layout.editing .memo-list { display: none; } .memo-layout:not(.editing) .memo-editor { display: none; } }
-.memo-list { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-lg); }
+/* the list (with its search) stays put while the memo scrolls, and scrolls on its own when it's long */
+.memo-list { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-lg); position: sticky; top: 0; max-height: calc(100dvh - var(--top) - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+@media (min-width: 861px) { .memo-list::before, .memo-list::after { display: none; } } /* glass sheen layers would scroll with the list */
+@media (max-width: 860px) { .memo-list { position: relative; max-height: none; overflow: visible; } } /* phones show the list alone */
 .memo-item { text-align: left; padding: 12px 14px; border-radius: 14px; transition: background-color .2s, transform .6s var(--spring); display: flex; flex-direction: column; gap: 3px; }
 .memo-item:hover { background: var(--tint); }
 .memo-item.on { background: var(--ink); color: var(--ink-fg); }
